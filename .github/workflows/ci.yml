@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend checks and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci --ignore-scripts
+
+      - name: Setup Biome
+        uses: biomejs/setup-biome@4c91541eaada48f67d7dbd7833600ce162b68f51 # v2.7.1
+
+      - name: Run Biome
+        run: cd frontend && biome ci .
+
+      - name: Check frontend types
+        run: npm --prefix frontend exec -- tsc --project frontend/tsconfig.json --noEmit
+
+      - name: Validate frontend dependency tree
+        run: npm --prefix frontend ls --all
+
+      - name: Audit frontend dependencies
+        run: npm --prefix frontend audit
+
+      - name: Audit production frontend dependencies
+        run: npm --prefix frontend audit --omit=dev
+
+      - name: Build frontend (dry run)
+        run: |
+          output_dir=$(mktemp -d)
+          trap 'rm -rf "$output_dir"' EXIT
+          cd frontend && npx --no-install vite build --outDir "$output_dir" --emptyOutDir
+
+      - name: Run frontend tests
+        run: npm --prefix frontend test
+
+  backend:
+    name: Go checks and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check modules
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: latest
+          args: --timeout=5m ./...
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Unformatted files found. Run 'gofmt -s -w .' to fix them."
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build check
+        run: go build ./...
+
+      - name: Run Go tests
+        run: go test -v -race ./...
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+  docker-lint:
+    name: Docker Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint Dockerfile with hadolint
+        run: docker run --rm -i hadolint/hadolint < ./docker/Dockerfile || true
+
+      - name: Validate Docker Compose files
+        run: |
+          docker compose -f ./docker/docker-compose.yaml config -q
+          docker compose -f ./docker/docker-compose.dev.yaml config -q

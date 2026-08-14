@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    >
+    <title>Speedtest &#8902; SpeedyBench</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon.svg"
+    >
+  </head>
+  <body>
+    <header class="top-header">
+      <a
+        class="logo-area"
+        href="https://github.com/underhax/speedybench"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <span
+          class="icon"
+          id="logo-icon"
+        ></span>
+        <span class="logo-text">SpeedyBench</span>
+      </a>
+      <div class="top-controls">
+        <div
+          class="lang-selector custom-dropdown"
+          id="lang-dropdown"
+        >
+          <div
+            class="dropdown-selected"
+            id="lang-selected"
+          >
+            <span
+              class="icon"
+              id="lang-icon"
+            ></span>
+            <span id="current-lang-text">EN</span>
+          </div>
+          <ul
+            class="dropdown-options"
+            id="lang-options"
+          ></ul>
+        </div>
+        <button
+          type="button"
+          id="theme-toggle"
+          class="icon-btn"
+        ></button>
+      </div>
+    </header>
+
+    <div id="test">
+      <div class="testGroup">
+        <div class="ping_jitter_area">
+          <span
+            class="icon"
+            id="ping-icon"
+          ></span>
+          <span
+            class="title"
+            data-i18n="ping"
+            >Ping</span
+          >
+          <span
+            id="pingText"
+            class="meterText"
+          ></span>
+          <span
+            class="unit"
+            data-i18n="unit_ms"
+            >ms</span
+          >
+          <span
+            class="title"
+            data-i18n="jitter"
+            >Jitter</span
+          >
+          <span
+            id="jitText"
+            class="meterText"
+          ></span>
+          <span
+            class="unit"
+            data-i18n="unit_ms"
+            >ms</span
+          >
+        </div>
+
+        <div class="testArea">
+          <div class="testName">
+            <span
+              class="icon"
+              id="download-icon"
+            ></span>
+            <span
+              class="title"
+              data-i18n="download"
+              >Download</span
+            >
+            <span
+              class="unit"
+              data-i18n="unit_mbps"
+              >Mbps</span
+            >
+          </div>
+          <div
+            id="dlText"
+            class="meterText"
+          ></div>
+        </div>
+
+        <div class="testArea">
+          <div class="testName">
+            <span
+              class="icon"
+              id="upload-icon"
+            ></span>
+            <span
+              class="title"
+              data-i18n="upload"
+              >Upload</span
+            >
+            <span
+              class="unit"
+              data-i18n="unit_mbps"
+              >Mbps</span
+            >
+          </div>
+          <div
+            id="ulText"
+            class="meterText"
+          ></div>
+        </div>
+
+        <div
+          class="ipArea"
+          id="ipArea"
+        >
+          <span
+            class="icon"
+            id="ip-icon"
+          ></span>
+          <span id="ip"></span>
+        </div>
+
+        <div id="startStopBtn"></div>
+      </div>
+    </div>
+    <script
+      type="module"
+      src="/src/main.ts"
+    ></script>
+  </body>
+</html>
