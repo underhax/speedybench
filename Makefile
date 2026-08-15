@@ -6,10 +6,11 @@ frontend-install:
 	npm --prefix frontend ci --ignore-scripts
 
 frontend-biome:
-	cd frontend && biome check src
+	cd frontend && biome ci .
 
 frontend-biome-fix:
 	cd frontend && biome check --write src
+	cd frontend && biome check --write index.html
 
 frontend-check:
 	npm --prefix frontend ci --ignore-scripts
