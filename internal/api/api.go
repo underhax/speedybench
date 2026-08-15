@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -17,9 +18,11 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Handler manages throughput testing endpoints and coordinates memory pooling for zero-allocation payload generation.
@@ -79,6 +82,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/garbage", h.handleGarbage)
 	mux.HandleFunc("/api/empty", h.handleEmpty)
 	mux.HandleFunc("/api/ip", h.handleIP)
+	mux.HandleFunc("/api/cpu", h.handleCPU)
 	mux.HandleFunc("/assets/", h.handleCompressedAsset)
 }
 
@@ -142,24 +146,35 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleGarbage(w http.ResponseWriter, r *http.Request) {
 	h.setSecurityHeaders(w)
 	h.setNoCacheHeaders(w)
+
+	sizeStr := r.URL.Query().Get("size")
+	timeoutSec := parseTimeout(r)
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
+	if sizeStr == "" {
+		sizeStr = r.URL.Query().Get("ckSize")
+		if sizeStr == "" {
+			sizeStr = "100"
+		}
+	}
+
+	sizeMB, err := strconv.Atoi(sizeStr)
+	if err != nil || sizeMB <= 0 {
+		http.Error(w, "invalid size parameter", http.StatusBadRequest)
+		return
+	}
+
+	if sizeMB > 1000 {
+		http.Error(w, "size exceeds maximum allowed (1000 MB)", http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Description", "File Transfer")
 	w.Header().Set("Content-Disposition", "attachment; filename=random.dat")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
-
-	ckSizeStr := r.URL.Query().Get("ckSize")
-	if ckSizeStr == "" {
-		ckSizeStr = "100"
-	}
-
-	ckSize, err := strconv.Atoi(ckSizeStr)
-	if err != nil || ckSize <= 0 {
-		ckSize = 100
-	}
-
-	if ckSize > 1024 {
-		ckSize = 1024
-	}
 
 	bufPtr, ok := h.garbagePool.Get().(*[]byte)
 	if !ok || bufPtr == nil {
@@ -172,7 +187,7 @@ func (h *Handler) handleGarbage(w http.ResponseWriter, r *http.Request) {
 
 	flusher, hasFlusher := w.(http.Flusher)
 
-	for range ckSize {
+	for range sizeMB {
 		if err := r.Context().Err(); err != nil {
 			break
 		}
@@ -190,10 +205,20 @@ func (h *Handler) handleEmpty(w http.ResponseWriter, r *http.Request) {
 	h.setNoCacheHeaders(w)
 	w.Header().Set("Connection", "keep-alive")
 
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	timeoutSec := parseTimeout(r)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
 
 	r.Body = http.MaxBytesReader(w, r.Body, 2*1024*1024*1024)
 
@@ -215,6 +240,15 @@ func (h *Handler) handleIP(w http.ResponseWriter, r *http.Request) {
 	ip := h.getClientIP(r)
 	if _, err := io.WriteString(w, template.HTMLEscapeString(ip)); err != nil {
 		log.Printf("Failed to write IP response: %v", err)
+	}
+}
+
+func (h *Handler) handleCPU(w http.ResponseWriter, _ *http.Request) {
+	h.setSecurityHeaders(w)
+	h.setNoCacheHeaders(w)
+
+	if _, err := fmt.Fprintf(w, "%d", runtime.NumCPU()); err != nil {
+		log.Printf("Failed to write CPU response: %v", err)
 	}
 }
 
@@ -242,6 +276,21 @@ func (h *Handler) setSecurityHeaders(w http.ResponseWriter) {
 }
 
 func (h *Handler) setNoCacheHeaders(w http.ResponseWriter) {
-	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
 	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+}
+
+func parseTimeout(r *http.Request) int {
+	timeStr := r.URL.Query().Get("time")
+	timeoutSec := 35
+	if timeStr != "" {
+		if t, err := strconv.Atoi(timeStr); err == nil && t > 0 {
+			if t > 30 {
+				t = 30
+			}
+			timeoutSec = t + 2
+		}
+	}
+	return timeoutSec
 }

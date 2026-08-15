@@ -292,4 +292,64 @@ describe('SpeedyBench Worker', () => {
     });
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
   });
+
+  it('cancels upload if maxBytes is reached', async (): Promise<void> => {
+    let abortCalled = false;
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn().mockImplementation(function (this: MockXHR) {
+        abortCalled = true;
+        if (this.onabort) this.onabort();
+      });
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: 2 * 1024 * 1024 } as ProgressEvent);
+        }
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: { base: 'http://127.0.0.1/', sizeMB: 1, threads: 1, timeoutSec: 15, type: 'start' },
+    } as MessageEvent);
+
+    expect(abortCalled).toBe(true);
+  });
+
+  it('cancels upload if it takes more than timeout limit', async (): Promise<void> => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.onabort) this.onabort();
+      });
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        performanceNowValue += 11000;
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: { base: 'http://127.0.0.1/', sizeMB: 100, threads: 1, timeoutSec: 10, type: 'start' },
+    } as MessageEvent);
+
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
+  });
 });

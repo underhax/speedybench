@@ -9,7 +9,7 @@ const runPingTest = async (base: string): Promise<void> => {
   for (let i = 0; i < 10; i++) {
     const start = performance.now();
     try {
-      await fetch(new URL('./api/empty', base), { cache: 'no-store' });
+      await fetch(new URL('./api/empty', base), { cache: 'no-store', method: 'HEAD' });
       const duration = performance.now() - start;
       pings.push(duration);
       if (duration < minPing) minPing = duration;
@@ -28,12 +28,16 @@ const runPingTest = async (base: string): Promise<void> => {
   self.postMessage({ jitter: jitter.toFixed(1), type: 'ping', value: minPing.toFixed(1) });
 };
 
-const runDownloadTest = async (base: string): Promise<void> => {
+const runDownloadTest = async (base: string, sizeMB: number, timeoutSec: number): Promise<void> => {
   const start = performance.now();
   let totalBytes = 0;
+  const timeoutMs = timeoutSec * 1000;
+  const maxBytes = sizeMB * 1024 * 1024;
 
   try {
-    const response = await fetch(new URL('./api/garbage?ckSize=100', base), { cache: 'no-store' });
+    const response = await fetch(new URL(`./api/garbage?size=${sizeMB}&time=${timeoutSec}`, base), {
+      cache: 'no-store',
+    });
     if (!response.body) throw new Error('ReadableStream not supported');
 
     const reader = response.body.getReader();
@@ -47,25 +51,42 @@ const runDownloadTest = async (base: string): Promise<void> => {
       const now = performance.now();
 
       if (now - lastReport > 250) {
-        self.postMessage({ type: 'dl_progress', value: calculateMbps(totalBytes, now - start) });
+        self.postMessage({
+          bytes: totalBytes,
+          timeMs: now - start,
+          type: 'dl_progress',
+          value: calculateMbps(totalBytes, now - start),
+        });
         lastReport = now;
       }
 
-      if (now - start > 10000) {
+      if (now - start >= timeoutMs || totalBytes >= maxBytes) {
         reader.cancel();
         break;
       }
     }
     const finalNow = performance.now();
-    self.postMessage({ type: 'dl_done', value: calculateMbps(totalBytes, finalNow - start) });
+    self.postMessage({
+      bytes: totalBytes,
+      timeMs: finalNow - start,
+      type: 'dl_done',
+      value: calculateMbps(totalBytes, finalNow - start),
+    });
   } catch (_e) {
     self.postMessage({ type: 'dl_error', value: 'Error' });
   }
 };
 
-const runUploadTest = async (base: string): Promise<void> => {
+const runUploadTest = async (
+  base: string,
+  sizeMB: number,
+  timeoutSec: number,
+  threads: number,
+): Promise<void> => {
   const start = performance.now();
   let totalBytes = 0;
+  const timeoutMs = timeoutSec * 1000;
+  const maxBytes = sizeMB * 1024 * 1024;
 
   const chunk = new Uint8Array(10 * 1024 * 1024);
   for (let i = 0; i < chunk.length; i += 65536) {
@@ -77,7 +98,7 @@ const runUploadTest = async (base: string): Promise<void> => {
   const sendChunk = async (): Promise<void> => {
     return new Promise<void>((resolve) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', new URL('./api/empty', base).toString());
+      xhr.open('POST', new URL(`./api/empty?time=${timeoutSec}`, base).toString());
 
       let lastLoaded = 0;
       xhr.upload.onprogress = (event: ProgressEvent): void => {
@@ -88,6 +109,11 @@ const runUploadTest = async (base: string): Promise<void> => {
         const loadedDiff = event.loaded - lastLoaded;
         totalBytes += loadedDiff;
         lastLoaded = event.loaded;
+
+        if (totalBytes >= maxBytes) {
+          active = false;
+          xhr.abort();
+        }
       };
 
       xhr.onload = (): void => resolve();
@@ -110,38 +136,49 @@ const runUploadTest = async (base: string): Promise<void> => {
     }
   };
 
-  const concurrency = navigator.hardwareConcurrency || 4;
-  const workers = Array.from({ length: concurrency }, () => uploadWorker());
+  const workers = Array.from({ length: threads }, () => uploadWorker());
 
   const reporter = setInterval(() => {
     const now = performance.now();
-    self.postMessage({ type: 'ul_progress', value: calculateMbps(totalBytes, now - start) });
-    if (now - start >= 10000) {
+    self.postMessage({
+      bytes: totalBytes,
+      timeMs: now - start,
+      type: 'ul_progress',
+      value: calculateMbps(totalBytes, now - start),
+    });
+    if (now - start >= timeoutMs || totalBytes >= maxBytes) {
       active = false;
       clearInterval(reporter);
     }
   }, 250);
 
-  await new Promise((resolve) => setTimeout(resolve, 10000));
-  active = false;
-  clearInterval(reporter);
+  setTimeout(() => {
+    active = false;
+  }, timeoutMs);
+
   await Promise.all(workers);
+  clearInterval(reporter);
 
   const finalNow = performance.now();
-  self.postMessage({ type: 'ul_done', value: calculateMbps(totalBytes, finalNow - start) });
+  self.postMessage({
+    bytes: totalBytes,
+    timeMs: finalNow - start,
+    type: 'ul_done',
+    value: calculateMbps(totalBytes, finalNow - start),
+  });
 };
 
 self.onmessage = async (e: MessageEvent): Promise<void> => {
   if (e.data?.type === 'start') {
-    const base = e.data.base as string;
+    const { base, sizeMB = 100, timeoutSec = 15, threads = 4 } = e.data;
     self.postMessage({ type: 'status', value: 'pinging' });
     await runPingTest(base);
 
     self.postMessage({ type: 'status', value: 'downloading' });
-    await runDownloadTest(base);
+    await runDownloadTest(base, sizeMB, timeoutSec);
 
     self.postMessage({ type: 'status', value: 'uploading' });
-    await runUploadTest(base);
+    await runUploadTest(base, sizeMB, timeoutSec, threads);
 
     self.postMessage({ type: 'status', value: 'done' });
   }

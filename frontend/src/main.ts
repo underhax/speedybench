@@ -14,6 +14,30 @@ const svgs = import.meta.glob('./icons/*.svg', {
   query: '?raw',
 }) as Record<string, string>;
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 MB';
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatTime(ms: number): string {
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
+function updateMetric(
+  textId: string,
+  subTextId: string,
+  value: string,
+  bytes?: number,
+  timeMs?: number,
+): void {
+  const el = document.querySelector(textId);
+  if (el) el.textContent = value;
+  const subEl = document.querySelector(subTextId);
+  if (subEl && bytes !== undefined && timeMs !== undefined) {
+    subEl.textContent = `${formatBytes(bytes)} / ${formatTime(timeMs)}`;
+  }
+}
+
 function injectIcons(): void {
   const setIcon = (id: string, name: string): void => {
     const el = document.querySelector(`#${id}`);
@@ -26,6 +50,7 @@ function injectIcons(): void {
   setIcon('ip-icon', 'ip');
   setIcon('lang-icon', 'language');
   setIcon('logo-icon', 'logo');
+  setIcon('settings-toggle', 'settings');
 }
 
 function updateThemeIcon(): void {
@@ -73,12 +98,190 @@ function setupLangSelector(): void {
   });
 }
 
+interface Settings {
+  size: number;
+  time: number;
+  threads: number;
+  save: boolean;
+}
+
+const defaultSettings: Settings = {
+  save: false,
+  size: 100,
+  threads: 4,
+  time: 15,
+};
+
+let serverThreads = 4;
+
+export function initServerInfo(): Promise<void> {
+  return fetch('./api/cpu')
+    .then((res) => res.text())
+    .then((text) => {
+      const cpus = Number.parseInt(text, 10);
+      if (!Number.isNaN(cpus) && cpus > 0) {
+        serverThreads = cpus;
+        if (currentSettings.threads > 1) {
+          currentSettings.threads = cpus;
+        }
+      }
+    })
+    .catch(Object);
+}
+
+void initServerInfo();
+
+let currentSettings: Settings = { ...defaultSettings };
+
+function loadSettings(): void {
+  const local = localStorage.getItem('speedybench_settings');
+  if (local) {
+    try {
+      currentSettings = { ...defaultSettings, ...JSON.parse(local), save: true };
+      return;
+    } catch {}
+  }
+
+  const session = sessionStorage.getItem('speedybench_settings');
+  if (session) {
+    try {
+      currentSettings = { ...defaultSettings, ...JSON.parse(session), save: false };
+    } catch {}
+  }
+}
+
+function saveSettings(): void {
+  const json = JSON.stringify(currentSettings);
+  if (currentSettings.save) {
+    localStorage.setItem('speedybench_settings', json);
+    sessionStorage.removeItem('speedybench_settings');
+  } else {
+    sessionStorage.setItem('speedybench_settings', json);
+    localStorage.removeItem('speedybench_settings');
+  }
+}
+
+function setupSettingsModal(): void {
+  const modal = document.querySelector('#settings-modal') as HTMLDivElement;
+  const toggleBtn = document.querySelector('#settings-toggle') as HTMLButtonElement;
+  const closeBtn = document.querySelector('#modal-close') as HTMLButtonElement;
+  const applyBtn = document.querySelector('#settings-apply-btn') as HTMLButtonElement;
+  const resetBtn = document.querySelector('#settings-reset-btn') as HTMLButtonElement;
+
+  const sizeSlider = document.querySelector('#size-slider') as HTMLInputElement;
+  const timeSlider = document.querySelector('#time-slider') as HTMLInputElement;
+  const threadsToggle = document.querySelector('#threads-toggle') as HTMLButtonElement;
+  const threadsIcon = document.querySelector('#threads-icon') as HTMLSpanElement;
+  const labelMulti = document.querySelector('#label-multi') as HTMLSpanElement;
+  const labelSingle = document.querySelector('#label-single') as HTMLSpanElement;
+  const saveChk = document.querySelector('#save-settings-chk') as HTMLInputElement;
+
+  const sizeVal = document.querySelector('#size-val') as HTMLSpanElement;
+  const timeVal = document.querySelector('#time-val') as HTMLSpanElement;
+
+  if (
+    !modal ||
+    !toggleBtn ||
+    !closeBtn ||
+    !sizeSlider ||
+    !timeSlider ||
+    !threadsToggle ||
+    !saveChk ||
+    !applyBtn ||
+    !resetBtn
+  )
+    return;
+
+  let draftSettings = { ...currentSettings };
+
+  const updateUI = (): void => {
+    sizeSlider.value = draftSettings.size.toString();
+    timeSlider.value = draftSettings.time.toString();
+    saveChk.checked = draftSettings.save;
+
+    sizeVal.textContent = draftSettings.size.toString();
+    timeVal.textContent = draftSettings.time.toString();
+
+    const isMulti = draftSettings.threads > 1;
+    threadsIcon.innerHTML = svgs[`./icons/threads-${isMulti ? 'multi' : 'single'}.svg`] as string;
+    labelMulti.classList.toggle('inactive', !isMulti);
+    labelSingle.classList.toggle('inactive', isMulti);
+    threadsToggle.setAttribute('aria-pressed', isMulti ? 'true' : 'false');
+  };
+
+  loadSettings();
+  draftSettings = { ...currentSettings };
+  updateUI();
+
+  const openModal = (): void => {
+    draftSettings = { ...currentSettings };
+    modal.classList.remove('hidden');
+    updateUI();
+  };
+
+  const closeModal = (): void => {
+    modal.classList.add('hidden');
+  };
+
+  toggleBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    }
+  });
+
+  applyBtn.addEventListener('click', () => {
+    currentSettings = { ...draftSettings };
+    saveSettings();
+    closeModal();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    draftSettings = { ...defaultSettings };
+    updateUI();
+  });
+
+  sizeSlider.addEventListener('input', (e) => {
+    const val = Number.parseInt((e.target as HTMLInputElement).value, 10);
+    draftSettings.size = val;
+    sizeVal.textContent = val.toString();
+  });
+  timeSlider.addEventListener('input', (e) => {
+    const val = Number.parseInt((e.target as HTMLInputElement).value, 10);
+    draftSettings.time = val;
+    timeVal.textContent = val.toString();
+  });
+  threadsToggle?.addEventListener('click', () => {
+    draftSettings.threads = draftSettings.threads > 1 ? 1 : serverThreads;
+    updateUI();
+  });
+  labelMulti?.addEventListener('click', () => {
+    draftSettings.threads = serverThreads;
+    updateUI();
+  });
+  labelSingle?.addEventListener('click', () => {
+    draftSettings.threads = 1;
+    updateUI();
+  });
+  saveChk.addEventListener('change', (e) => {
+    draftSettings.save = (e.target as HTMLInputElement).checked;
+  });
+}
+
 initTheme();
 initLanguage();
 injectIcons();
 updateThemeIcon();
 applyTranslations();
 setupLangSelector();
+setupSettingsModal();
 
 const startBtn = document.querySelector('#startStopBtn') as HTMLDivElement;
 let worker: Worker | null = null;
@@ -112,17 +315,13 @@ function handleWorkerMessage(e: MessageEvent): void {
       break;
     }
     case 'dl_progress':
-    case 'dl_done': {
-      const el = document.querySelector('#dlText');
-      if (el) el.textContent = value;
+    case 'dl_done':
+      updateMetric('#dlText', '#dlSubText', value, e.data.bytes, e.data.timeMs);
       break;
-    }
     case 'ul_progress':
-    case 'ul_done': {
-      const el = document.querySelector('#ulText');
-      if (el) el.textContent = value;
+    case 'ul_done':
+      updateMetric('#ulText', '#ulSubText', value, e.data.bytes, e.data.timeMs);
       break;
-    }
     case 'status': {
       if (value === 'done') {
         isRunning = false;
@@ -149,7 +348,13 @@ startBtn?.addEventListener('click', (): void => {
 
   worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   worker.onmessage = handleWorkerMessage;
-  worker.postMessage({ base: window.location.href, type: 'start' });
+  worker.postMessage({
+    base: window.location.href,
+    sizeMB: currentSettings.size,
+    threads: currentSettings.threads,
+    timeoutSec: currentSettings.time,
+    type: 'start',
+  });
 
   fetch(new URL('./api/ip', window.location.href))
     .then((res: Response): Promise<string> => res.text())
@@ -157,7 +362,7 @@ startBtn?.addEventListener('click', (): void => {
       const ipText = document.querySelector('#ip');
       if (ipText) ipText.textContent = ip;
     })
-    .catch(() => {});
+    .catch(Object);
 });
 
 const themeToggleBtn = document.querySelector('#theme-toggle');

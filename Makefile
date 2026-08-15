@@ -50,7 +50,7 @@ docker-lint:
 security-trivy:
 	trivy fs --severity CRITICAL,HIGH .
 
-verify: frontend-check frontend-biome frontend-test backend-check backend-vulncheck backend-test security-trivy docker-lint
+verify: frontend-check frontend-biome frontend-test backend-check backend-test backend-vulncheck security-trivy docker-lint
 
 build:
 	npm --prefix frontend ci --ignore-scripts

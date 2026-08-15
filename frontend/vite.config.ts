@@ -3,6 +3,7 @@ import { compression } from 'vite-plugin-compression2';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  base: './',
   build: {
     emptyOutDir: true,
     outDir: '../internal/assets/dist',

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -94,13 +95,15 @@ func TestHandleGarbage(t *testing.T) {
 	tests := []struct {
 		name         string
 		query        string
+		expectedCode int
 		expectedSize int
 	}{
-		{"default", "", 100 * 1024 * 1024},
-		{"valid", "?ckSize=5", 5 * 1024 * 1024},
-		{"invalid", "?ckSize=abc", 100 * 1024 * 1024},
-		{"negative", "?ckSize=-10", 100 * 1024 * 1024},
-		{"too_large", "?ckSize=2000", 1024 * 1024 * 1024},
+		{"default", "", http.StatusOK, 100 * 1024 * 1024},
+		{"valid_size", "?size=5", http.StatusOK, 5 * 1024 * 1024},
+		{"fallback_ckSize", "?ckSize=5", http.StatusOK, 5 * 1024 * 1024},
+		{"invalid", "?size=abc", http.StatusBadRequest, 0},
+		{"negative", "?size=-10", http.StatusBadRequest, 0},
+		{"too_large", "?size=1001", http.StatusBadRequest, 0},
 	}
 
 	for _, tt := range tests {
@@ -109,10 +112,14 @@ func TestHandleGarbage(t *testing.T) {
 			dw := &discardResponseWriter{}
 			h.handleGarbage(dw, req)
 
-			if status := dw.code; status != 0 && status != http.StatusOK {
-				t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+			status := dw.code
+			if status == 0 {
+				status = http.StatusOK
 			}
-			if dw.size != tt.expectedSize {
+			if status != tt.expectedCode {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, tt.expectedCode)
+			}
+			if tt.expectedCode == http.StatusOK && dw.size != tt.expectedSize {
 				t.Errorf("handler returned wrong body size: got %v want %v", dw.size, tt.expectedSize)
 			}
 		})
@@ -188,6 +195,7 @@ func TestHandleEmpty(t *testing.T) {
 		expectedCode int
 	}{
 		{bytes.NewBufferString("test data"), "valid_post", http.MethodPost, http.StatusOK},
+		{http.NoBody, "valid_head", http.MethodHead, http.StatusOK},
 		{http.NoBody, "invalid_method", http.MethodGet, http.StatusMethodNotAllowed},
 	}
 
@@ -345,6 +353,31 @@ func TestHandleIPWriteError(t *testing.T) {
 	ew := &errWriter{}
 	h.handleIP(ew, req)
 	t.Log("handleIP returned after write error")
+}
+
+func TestHandleCPU(t *testing.T) {
+	h := NewHandler(fstest.MapFS{})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/cpu", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.handleCPU(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status OK, got %v", rr.Code)
+	}
+
+	body := rr.Body.String()
+	cpus, err := strconv.Atoi(body)
+	if err != nil || cpus <= 0 {
+		t.Errorf("expected valid cpu count, got %v", body)
+	}
+}
+
+func TestHandleCPUWriteError(t *testing.T) {
+	h := NewHandler(fstest.MapFS{})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/cpu", http.NoBody)
+	ew := &errWriter{}
+	h.handleCPU(ew, req)
+	t.Log("handleCPU returned after write error")
 }
 
 func TestHandleCompressedAsset(t *testing.T) {

@@ -135,11 +135,12 @@ func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
 	secureMux := securePathMiddleware(mux)
 
 	server := &http.Server{
-		Addr:         net.JoinHostPort(cfg.host, cfg.port),
-		Handler:      secureMux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              net.JoinHostPort(cfg.host, cfg.port),
+		Handler:           secureMux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       35 * time.Second,
+		WriteTimeout:      35 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	errChan := make(chan error, 1)

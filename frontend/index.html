@@ -10,7 +10,7 @@
     <link
       rel="icon"
       type="image/svg+xml"
-      href="/favicon.svg"
+      href="./favicon.svg"
     >
   </head>
   <body>
@@ -52,8 +52,89 @@
           id="theme-toggle"
           class="icon-btn"
         ></button>
+        <button
+          type="button"
+          id="settings-toggle"
+          class="icon-btn"
+        ></button>
       </div>
     </header>
+
+    <div
+      id="settings-modal"
+      class="modal-overlay hidden"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 data-i18n="settings_title">Settings</h2>
+          <button
+            type="button"
+            class="close-btn"
+            id="modal-close"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="size-slider">
+              <span data-i18n="settings_size">Test Volume</span>
+              <span class="range-value"><span id="size-val">100</span> MB</span>
+            </label>
+            <input
+              type="range"
+              id="size-slider"
+              min="10"
+              max="1000"
+              step="10"
+              value="100"
+            >
+          </div>
+          <div class="setting-group">
+            <label for="time-slider">
+              <span data-i18n="settings_time">Time Limit</span>
+              <span class="range-value"
+                ><span id="time-val">15</span> <span data-i18n="settings_sec">s</span></span
+              >
+            </label>
+            <input
+              type="range"
+              id="time-slider"
+              min="10"
+              max="30"
+              step="5"
+              value="15"
+            >
+          </div>
+          <p
+            class="settings-hint"
+            data-i18n="settings_hint"
+          >
+            The test completes when either limit is reached first.
+          </p>
+          <div class="setting-group-toggle">
+            <div class="setting-label" data-i18n="settings_threads">Connections</div>
+            <div class="toggle-container">
+              <span class="toggle-label" id="label-multi" data-i18n="settings_multi">Multi</span>
+              <button type="button" id="threads-toggle" class="circle-toggle" aria-pressed="false">
+                <span class="icon" id="threads-icon"></span>
+              </button>
+              <span class="toggle-label" id="label-single" data-i18n="settings_single">Single</span>
+            </div>
+          </div>
+          <div class="setting-group checkbox-group">
+            <label>
+              <input type="checkbox" id="save-settings-chk">
+              <span data-i18n="settings_save">Save in browser (localStorage)</span>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="settings-reset-btn" class="btn-secondary" data-i18n="settings_reset">Reset</button>
+            <button type="button" id="settings-apply-btn" class="btn-primary" data-i18n="settings_apply">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="test">
       <div class="testGroup">
@@ -113,6 +194,10 @@
             id="dlText"
             class="meterText"
           ></div>
+          <div
+            id="dlSubText"
+            class="meterSubText"
+          ></div>
         </div>
 
         <div class="testArea">
@@ -136,6 +221,10 @@
             id="ulText"
             class="meterText"
           ></div>
+          <div
+            id="ulSubText"
+            class="meterSubText"
+          ></div>
         </div>
 
         <div
@@ -154,7 +243,7 @@
     </div>
     <script
       type="module"
-      src="/src/main.ts"
+      src="./src/main.ts"
     ></script>
   </body>
 </html>

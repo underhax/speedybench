@@ -130,9 +130,10 @@ server {
         proxy_pass http://127.0.0.1:8989;
 
         # SpeedyBench specific optimizations
-        client_max_body_size 35m;         # Allows large upload chunks (10MB chunks + overhead)
-        proxy_request_buffering off;      # Streams upload directly to Go without spooling to disk
-        proxy_buffering off;              # Streams download directly to client without buffering
+        client_max_body_size 35m;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_max_temp_file_size 0;
 
         # Standard proxy headers
         proxy_redirect      off;
@@ -141,11 +142,41 @@ server {
         proxy_set_header    X-Forwarded-Proto   $scheme;
         proxy_set_header    Host                $http_host;
         proxy_set_header    X-NginX-Proxy       true;
+
+        # Optimize keep-alive connections to the backend
         proxy_http_version  1.1;
-        proxy_set_header    Upgrade             $http_upgrade;
-        proxy_set_header    Connection          "upgrade";
+        proxy_set_header    Connection          "";
     }
 }
+```
+
+### Hosting on a Non-Root Path (Sub-directory)
+
+If you want to host SpeedyBench under a specific path (e.g., `https://example.com/speedybench/`), you **must** use a trailing slash in the `proxy_pass` directive to strip the prefix before it reaches the backend.
+
+```nginx
+    location /speedybench/ {
+        proxy_pass http://127.0.0.1:8989/;
+
+        client_max_body_size 35m;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_max_temp_file_size 0;
+
+        proxy_redirect      off;
+        proxy_set_header    X-Real-IP           $remote_addr;
+        proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header    X-Forwarded-Proto   $scheme;
+        proxy_set_header    Host                $http_host;
+        proxy_set_header    X-NginX-Proxy       true;
+
+        proxy_http_version  1.1;
+        proxy_set_header    Connection          "";
+    }
+
+    location = /speedybench {
+        return 301 /speedybench/;
+    }
 ```
 
 ## Development
