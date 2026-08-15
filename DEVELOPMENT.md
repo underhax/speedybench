@@ -122,6 +122,7 @@ The Go backend utilizes the `embed` package to serve compiled frontend assets di
 | `make frontend-install` | Installs frontend dependencies without executing lifecycle scripts. |
 | `make frontend-check` | Installs dependencies, performs TypeScript type validation, validates dependency trees, audits for vulnerabilities, and verifies a dry-run production build. |
 | `make frontend-biome` | Executes Biome strict linting and formatting checks. |
+| `make frontend-biome-fix` | Automatically fixes Biome formatting and safely fixable linting issues. |
 | `make frontend-test` | Executes the frontend test suite via Vitest. |
 | `make frontend-coverage` | Executes the frontend test suite and generates a coverage report. |
 | `make backend-check` | Validates Go code formatting, executes `golangci-lint`, and verifies compilation. |

@@ -1,6 +1,6 @@
 import { calculateMbps } from './utils.ts';
 
-const runPingTest = async (): Promise<void> => {
+const runPingTest = async (base: string): Promise<void> => {
   let minPing = Infinity;
   let maxPing = 0;
   let totalPing = 0;
@@ -9,7 +9,7 @@ const runPingTest = async (): Promise<void> => {
   for (let i = 0; i < 10; i++) {
     const start = performance.now();
     try {
-      await fetch('/api/empty', { cache: 'no-store' });
+      await fetch(new URL('./api/empty', base), { cache: 'no-store' });
       const duration = performance.now() - start;
       pings.push(duration);
       if (duration < minPing) minPing = duration;
@@ -28,12 +28,12 @@ const runPingTest = async (): Promise<void> => {
   self.postMessage({ jitter: jitter.toFixed(1), type: 'ping', value: minPing.toFixed(1) });
 };
 
-const runDownloadTest = async (): Promise<void> => {
+const runDownloadTest = async (base: string): Promise<void> => {
   const start = performance.now();
   let totalBytes = 0;
 
   try {
-    const response = await fetch('/api/garbage?ckSize=100', { cache: 'no-store' });
+    const response = await fetch(new URL('./api/garbage?ckSize=100', base), { cache: 'no-store' });
     if (!response.body) throw new Error('ReadableStream not supported');
 
     const reader = response.body.getReader();
@@ -63,7 +63,7 @@ const runDownloadTest = async (): Promise<void> => {
   }
 };
 
-const runUploadTest = async (): Promise<void> => {
+const runUploadTest = async (base: string): Promise<void> => {
   const start = performance.now();
   let totalBytes = 0;
 
@@ -77,7 +77,7 @@ const runUploadTest = async (): Promise<void> => {
   const sendChunk = async (): Promise<void> => {
     return new Promise<void>((resolve) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/empty');
+      xhr.open('POST', new URL('./api/empty', base).toString());
 
       let lastLoaded = 0;
       xhr.upload.onprogress = (event: ProgressEvent): void => {
@@ -132,15 +132,16 @@ const runUploadTest = async (): Promise<void> => {
 };
 
 self.onmessage = async (e: MessageEvent): Promise<void> => {
-  if (e.data === 'start') {
+  if (e.data?.type === 'start') {
+    const base = e.data.base as string;
     self.postMessage({ type: 'status', value: 'pinging' });
-    await runPingTest();
+    await runPingTest(base);
 
     self.postMessage({ type: 'status', value: 'downloading' });
-    await runDownloadTest();
+    await runDownloadTest(base);
 
     self.postMessage({ type: 'status', value: 'uploading' });
-    await runUploadTest();
+    await runUploadTest(base);
 
     self.postMessage({ type: 'status', value: 'done' });
   }

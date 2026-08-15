@@ -53,11 +53,12 @@ describe('SpeedyBench Worker', () => {
 
     global.fetch = vi.fn().mockImplementation(async (url) => {
       _fetchCallCount++;
-      if (url === '/api/empty') {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.endsWith('/api/empty')) {
         performanceNowValue += 10;
         return { ok: true };
       }
-      if (url.startsWith('/api/garbage')) {
+      if (urlStr.includes('/api/garbage')) {
         return {
           body: {
             getReader: () => {
@@ -103,7 +104,7 @@ describe('SpeedyBench Worker', () => {
     };
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'status', value: 'pinging' });
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ping' }));
@@ -119,7 +120,7 @@ describe('SpeedyBench Worker', () => {
     global.fetch = vi.fn().mockImplementation(() => Promise.reject(new Error('Network error')));
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'status' }));
     errorSpy.mockRestore();
@@ -128,21 +129,23 @@ describe('SpeedyBench Worker', () => {
   it('handles fetch errors during download gracefully', async (): Promise<void> => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       performanceNowValue += 5000;
-      if (url.startsWith('/api/garbage')) {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
         throw new Error('Download failed');
       }
       return { ok: true };
     });
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'dl_error', value: 'Error' });
   });
 
   it('handles fetch errors during upload gracefully', async (): Promise<void> => {
     global.fetch = vi.fn().mockImplementation(async (url, options) => {
-      if (url === '/api/empty' && options?.method === 'POST') {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.endsWith('/api/empty') && options?.method === 'POST') {
         throw new Error('Upload failed');
       }
       return {
@@ -171,7 +174,7 @@ describe('SpeedyBench Worker', () => {
     };
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'ul_error', value: 'Error' });
   });
@@ -179,14 +182,15 @@ describe('SpeedyBench Worker', () => {
   it('cancels download if it takes more than 10 seconds', async (): Promise<void> => {
     let cancelCalled = false;
     global.fetch = vi.fn().mockImplementation(async (url, options) => {
-      if (url === '/api/empty' && options?.method === 'POST') {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.endsWith('/api/empty') && options?.method === 'POST') {
         performanceNowValue += 11000;
         return { ok: true };
       }
-      if (url === '/api/empty') {
+      if (urlStr.endsWith('/api/empty')) {
         return { ok: true };
       }
-      if (url.startsWith('/api/garbage')) {
+      if (urlStr.includes('/api/garbage')) {
         return {
           body: {
             getReader: () => ({
@@ -228,7 +232,7 @@ describe('SpeedyBench Worker', () => {
     };
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(cancelCalled).toBe(true);
   });
@@ -236,14 +240,15 @@ describe('SpeedyBench Worker', () => {
   it('throws error if response body is null (ReadableStream not supported)', async (): Promise<void> => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       performanceNowValue += 11000;
-      if (url.startsWith('/api/garbage')) {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
         return { body: null, ok: true };
       }
       return { ok: true };
     });
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'dl_error', value: 'Error' });
   });
@@ -279,7 +284,7 @@ describe('SpeedyBench Worker', () => {
     };
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: 'start' } as MessageEvent);
+    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
 
     Object.defineProperty(global, 'navigator', {
       configurable: true,

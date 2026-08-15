@@ -1,12 +1,15 @@
 VERSION ?= dev
 
-.PHONY: frontend-install frontend-check frontend-biome frontend-test frontend-coverage backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify build
+.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify build
 
 frontend-install:
 	npm --prefix frontend ci --ignore-scripts
 
 frontend-biome:
 	cd frontend && biome check src
+
+frontend-biome-fix:
+	cd frontend && biome check --write src
 
 frontend-check:
 	npm --prefix frontend ci --ignore-scripts

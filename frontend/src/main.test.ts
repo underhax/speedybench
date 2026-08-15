@@ -91,9 +91,12 @@ describe('Main UI', () => {
 
     startBtn?.click();
     expect(startBtn?.classList.contains('running')).toBe(true);
-    expect(mockWorkerInstance.postMessage).toHaveBeenCalledWith('start');
+    expect(mockWorkerInstance.postMessage).toHaveBeenCalledWith({
+      base: window.location.href,
+      type: 'start',
+    });
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/ip');
+    expect(fetchMock).toHaveBeenCalledWith(new URL('./api/ip', window.location.href));
     await new Promise((r) => setTimeout(r, 10));
     expect(document.querySelector('#ip')?.textContent).toBe('127.0.0.1');
 
@@ -162,7 +165,7 @@ describe('Main UI', () => {
     const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
     startBtn?.click();
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/ip');
+    expect(fetchMock).toHaveBeenCalledWith(new URL('./api/ip', window.location.href));
 
     await new Promise((r) => setTimeout(r, 10));
   });

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -58,43 +59,64 @@ func main() {
 	}
 }
 
-func parseConfig(args []string, getenv func(string) string) (host, port string, healthcheck bool, err error) {
+type appConfig struct {
+	host        string
+	port        string
+	healthcheck bool
+	inDocker    bool
+}
+
+func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err error) {
 	flags := flag.NewFlagSet("speedybench", flag.ContinueOnError)
 	hc := flags.Bool("healthcheck", false, "Run healthcheck against the local server")
 
 	if err := flags.Parse(args); err != nil {
-		return "", "", false, fmt.Errorf("parse flags: %w", err)
+		return cfg, fmt.Errorf("parse flags: %w", err)
+	}
+	cfg.healthcheck = *hc
+
+	cfg.port = getenv("SPEEDYBENCH_PORT")
+	if cfg.port == "" {
+		cfg.port = "8989"
+	}
+	if p, err := strconv.Atoi(cfg.port); err != nil || p <= 1024 || p > 65535 {
+		return cfg, errors.New("invalid SPEEDYBENCH_PORT - must be a number between 1025 and 65535")
 	}
 
-	port = getenv("SPEEDYBENCH_PORT")
-	if port == "" {
-		port = "8989"
-	}
-	if p, err := strconv.Atoi(port); err != nil || p <= 1024 || p > 65535 {
-		return "", "", false, errors.New("invalid SPEEDYBENCH_PORT: must be a number between 1025 and 65535")
-	}
-
-	host = getenv("SPEEDYBENCH_HOST")
-	switch host {
+	cfg.host = getenv("SPEEDYBENCH_HOST")
+	switch cfg.host {
 	case "":
-		host = "127.0.0.1"
+		cfg.host = "127.0.0.1"
 	case "all":
-		host = ""
+		cfg.host = ""
+	default:
+		if net.ParseIP(cfg.host) == nil {
+			return cfg, errors.New("invalid SPEEDYBENCH_HOST - must be 'all' or a valid IP address")
+		}
 	}
 
-	return host, port, *hc, nil
+	inDockerStr := getenv("SPEEDYBENCH_IN_DOCKER")
+	if inDockerStr != "" {
+		inDocker, err := strconv.ParseBool(inDockerStr)
+		if err != nil {
+			return cfg, fmt.Errorf("invalid SPEEDYBENCH_IN_DOCKER - must be a boolean: %w", err)
+		}
+		cfg.inDocker = inDocker
+	}
+
+	return cfg, nil
 }
 
 func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
-	host, port, healthcheck, err := parseConfig(args, getenv)
+	cfg, err := parseConfig(args, getenv)
 	if err != nil {
 		return err
 	}
 
-	if healthcheck {
+	if cfg.healthcheck {
 		ctx, cancel := withTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		if checkErr := executeHealthcheck(ctx, port, http.DefaultClient); checkErr != nil {
+		if checkErr := executeHealthcheck(ctx, cfg.port, http.DefaultClient); checkErr != nil {
 			return fmt.Errorf("healthcheck failed: %w", checkErr)
 		}
 		return nil
@@ -110,9 +132,11 @@ func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
 	apiHandler := api.NewHandler(fSys)
 	apiHandler.RegisterRoutes(mux)
 
+	secureMux := securePathMiddleware(mux)
+
 	server := &http.Server{
-		Addr:         net.JoinHostPort(host, port),
-		Handler:      mux,
+		Addr:         net.JoinHostPort(cfg.host, cfg.port),
+		Handler:      secureMux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -121,6 +145,9 @@ func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
 	errChan := make(chan error, 1)
 	go func() {
 		log.Printf("Starting server on %s (Version: %s)", server.Addr, Version)
+		if !cfg.inDocker {
+			fmt.Println("Press Ctrl+C to exit")
+		}
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- fmt.Errorf("server failed: %w", err)
 		}
@@ -170,4 +197,31 @@ func runHealthcheck(ctx context.Context, portStr string, client *http.Client) er
 		return fmt.Errorf("unhealthy status code: %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func securePathMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		if len(path) > 256 {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		if strings.Contains(r.RequestURI, "//") || strings.Contains(r.RequestURI, "..") {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		for i := range path {
+			c := path[i]
+			valid := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/' || c == '-' || c == '.' || c == '_'
+			if !valid {
+				http.Error(w, "Bad Request", http.StatusBadRequest)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

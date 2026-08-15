@@ -21,5 +21,6 @@ COPY --from=backend-builder /app/speedybench /app/speedybench
 USER 65534:65534
 ENV SPEEDYBENCH_HOST=all
 ENV SPEEDYBENCH_PORT=8989
+ENV SPEEDYBENCH_IN_DOCKER=true
 EXPOSE 8989
 ENTRYPOINT ["/app/speedybench"]

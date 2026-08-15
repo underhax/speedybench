@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -101,158 +103,299 @@ func TestRunHealthcheck(t *testing.T) {
 	})
 }
 
+func getFreePort(t *testing.T) string {
+	t.Helper()
+	lc := net.ListenConfig{}
+	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to get free port: %v", err)
+	}
+	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("expected *net.TCPAddr, got %T", ln.Addr())
+	}
+	port := strconv.Itoa(tcpAddr.Port)
+	if closeErr := ln.Close(); closeErr != nil {
+		t.Logf("failed to close free port listener: %v", closeErr)
+	}
+	return port
+}
+
 func TestRun(t *testing.T) {
-	t.Run("invalid_flag", func(t *testing.T) {
-		err := run([]string{"-invalid-flag"}, func(_ string) string { return "" })
-		if err == nil {
-			t.Errorf("expected error for invalid flag")
-		}
-	})
+	portHealthcheckFail := getFreePort(t)
+	portGraceful := getFreePort(t)
+	portServerFail := getFreePort(t)
 
-	t.Run("invalid_port", func(t *testing.T) {
-		err := run([]string{}, func(_ string) string { return "invalid" })
-		if err == nil {
-			t.Errorf("expected error for invalid port")
-		}
-	})
-
-	t.Run("invalid_port_range", func(t *testing.T) {
-		err := run([]string{}, func(_ string) string { return "99999" })
-		if err == nil {
-			t.Errorf("expected error for out of range port")
-		}
-	})
-
-	t.Run("healthcheck_fail", func(t *testing.T) {
-		err := run([]string{"-healthcheck"}, func(_ string) string { return "8989" })
-		if err == nil {
-			t.Errorf("expected error since server is not actually running on 8989 in this test environment")
-		}
-	})
-
-	t.Run("graceful_shutdown", func(t *testing.T) {
-		done := make(chan bool)
-		go func() {
-			select {
-			case <-time.After(100 * time.Millisecond):
-				if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
-					panic(err)
+	tests := []struct {
+		setup   func(t *testing.T) (teardown func())
+		name    string
+		port    string
+		host    string
+		args    []string
+		sigs    []os.Signal
+		wantErr bool
+	}{
+		{
+			name:    "invalid_flag",
+			args:    []string{"-invalid-flag"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid_port",
+			port:    "invalid",
+			wantErr: true,
+		},
+		{
+			name:    "invalid_port_range",
+			port:    "99999",
+			wantErr: true,
+		},
+		{
+			name:    "healthcheck_fail",
+			args:    []string{"-healthcheck"},
+			port:    portHealthcheckFail,
+			wantErr: true,
+		},
+		{
+			name: "graceful_shutdown",
+			port: portGraceful,
+			setup: func(_ *testing.T) func() {
+				done := make(chan bool)
+				go func() {
+					select {
+					case <-time.After(100 * time.Millisecond):
+						if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+							panic(err)
+						}
+					case <-done:
+					}
+				}()
+				return func() { close(done) }
+			},
+			sigs:    []os.Signal{syscall.SIGTERM},
+			wantErr: false,
+		},
+		{
+			name: "server_fail",
+			host: "127.0.0.1",
+			port: portServerFail,
+			setup: func(t *testing.T) func() {
+				lc := net.ListenConfig{}
+				ln, err := lc.Listen(context.Background(), "tcp", net.JoinHostPort("127.0.0.1", portServerFail))
+				if err != nil {
+					t.Fatalf("listen error: %v", err)
 				}
-			case <-done:
-			}
-		}()
-		defer close(done)
-
-		err := run([]string{}, func(s string) string {
-			if s == "SPEEDYBENCH_PORT" {
-				return "54321"
-			}
-			return ""
-		}, syscall.SIGTERM)
-		if err != nil {
-			t.Errorf("expected graceful shutdown without error, got %v", err)
-		}
-	})
-
-	t.Run("server_fail", func(t *testing.T) {
-		lc := net.ListenConfig{}
-		ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:54322")
-		if err == nil {
-			defer func() {
-				if closeErr := ln.Close(); closeErr != nil {
-					t.Logf("close error: %v", closeErr)
+				return func() {
+					if closeErr := ln.Close(); closeErr != nil {
+						t.Logf("close error: %v", closeErr)
+					}
 				}
-			}()
-		}
-		err = run([]string{}, func(s string) string {
-			if s == "SPEEDYBENCH_HOST" {
-				return "127.0.0.1"
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				teardown := tt.setup(t)
+				defer teardown()
 			}
-			return "54322"
+			err := run(tt.args, func(s string) string {
+				if s == "SPEEDYBENCH_PORT" {
+					return tt.port
+				}
+				if s == "SPEEDYBENCH_HOST" {
+					return tt.host
+				}
+				return ""
+			}, tt.sigs...)
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error, got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
 		})
-		if err == nil {
-			t.Errorf("expected error due to port already in use, got nil")
-		}
-	})
+	}
 }
 
 func TestRunEdgeCases(t *testing.T) {
-	t.Run("healthcheck_success", func(t *testing.T) {
-		oldExecuteHealthcheck := executeHealthcheck
-		defer func() { executeHealthcheck = oldExecuteHealthcheck }()
-		executeHealthcheck = func(_ context.Context, _ string, _ *http.Client) error {
-			return nil
-		}
-		err := run([]string{"-healthcheck"}, func(_ string) string { return "8989" })
-		if err != nil {
-			t.Errorf("expected no error for successful healthcheck, got %v", err)
-		}
-	})
+	portShutdownError := getFreePort(t)
 
-	t.Run("fssub_error", func(t *testing.T) {
-		oldSubFS := subFS
-		defer func() { subFS = oldSubFS }()
-		subFS = func(_ fs.FS, _ string) (fs.FS, error) {
-			return nil, errors.New("mock subfs error")
-		}
-		err := run([]string{}, func(_ string) string { return "8989" })
-		if err == nil || err.Error() != "failed to initialize embedded frontend assets: mock subfs error" {
-			t.Errorf("expected subfs error, got %v", err)
-		}
-	})
-
-	t.Run("shutdown_error", func(t *testing.T) {
-		oldShutdownServer := shutdownServer
-		defer func() { shutdownServer = oldShutdownServer }()
-		shutdownServer = func(_ context.Context, _ *http.Server) error {
-			return errors.New("mock shutdown error")
-		}
-
-		done := make(chan bool)
-		go func() {
-			select {
-			case <-time.After(100 * time.Millisecond):
-				if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
-					panic(err)
+	tests := []struct {
+		setup    func(t *testing.T) func()
+		checkErr func(t *testing.T, err error)
+		name     string
+		port     string
+		args     []string
+		sigs     []os.Signal
+	}{
+		{
+			name: "healthcheck_success",
+			args: []string{"-healthcheck"},
+			port: "8989",
+			setup: func(_ *testing.T) func() {
+				oldExecuteHealthcheck := executeHealthcheck
+				executeHealthcheck = func(_ context.Context, _ string, _ *http.Client) error {
+					return nil
 				}
-			case <-done:
-			}
-		}()
-		defer close(done)
+				return func() { executeHealthcheck = oldExecuteHealthcheck }
+			},
+			checkErr: func(t *testing.T, err error) {
+				if err != nil {
+					t.Errorf("expected no error for successful healthcheck, got %v", err)
+				}
+			},
+		},
+		{
+			name: "fssub_error",
+			port: "8989",
+			setup: func(_ *testing.T) func() {
+				oldSubFS := subFS
+				subFS = func(_ fs.FS, _ string) (fs.FS, error) {
+					return nil, errors.New("mock subfs error")
+				}
+				return func() { subFS = oldSubFS }
+			},
+			checkErr: func(t *testing.T, err error) {
+				if err == nil || err.Error() != "failed to initialize embedded frontend assets: mock subfs error" {
+					t.Errorf("expected subfs error, got %v", err)
+				}
+			},
+		},
+		{
+			name: "shutdown_error",
+			port: portShutdownError,
+			setup: func(_ *testing.T) func() {
+				oldShutdownServer := shutdownServer
+				shutdownServer = func(_ context.Context, _ *http.Server) error {
+					return errors.New("mock shutdown error")
+				}
 
-		err := run([]string{}, func(s string) string {
-			if s == "SPEEDYBENCH_PORT" {
-				return "54330"
+				done := make(chan bool)
+				go func() {
+					select {
+					case <-time.After(100 * time.Millisecond):
+						if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+							panic(err)
+						}
+					case <-done:
+					}
+				}()
+				return func() {
+					shutdownServer = oldShutdownServer
+					close(done)
+				}
+			},
+			sigs: []os.Signal{syscall.SIGTERM},
+			checkErr: func(t *testing.T, err error) {
+				if err == nil || err.Error() != "server forced to shutdown: mock shutdown error" {
+					t.Errorf("expected mock shutdown error, got %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				teardown := tt.setup(t)
+				defer teardown()
 			}
-			return ""
-		}, syscall.SIGTERM)
-		if err == nil || err.Error() != "server forced to shutdown: mock shutdown error" {
-			t.Errorf("expected mock shutdown error, got %v", err)
-		}
-	})
+			err := run(tt.args, func(s string) string {
+				if s == "SPEEDYBENCH_PORT" {
+					return tt.port
+				}
+				return ""
+			}, tt.sigs...)
+			if tt.checkErr != nil {
+				tt.checkErr(t, err)
+			}
+		})
+	}
 }
 
 func TestParseConfig(t *testing.T) {
-	t.Run("default_port_and_all_host", func(t *testing.T) {
-		host, port, healthcheck, err := parseConfig([]string{}, func(s string) string {
-			if s == "SPEEDYBENCH_HOST" {
-				return "all"
+	tests := []struct {
+		name       string
+		hostEnv    string
+		dockerEnv  string
+		wantHost   string
+		wantDocker bool
+		wantError  bool
+	}{
+		{
+			name:      "default_port_and_all_host",
+			hostEnv:   "all",
+			wantHost:  "",
+			wantError: false,
+		},
+		{
+			name:      "invalid_host",
+			hostEnv:   "!!!garbage!!!",
+			wantError: true,
+		},
+		{
+			name:      "valid_host_ip",
+			hostEnv:   "192.168.1.1",
+			wantHost:  "192.168.1.1",
+			wantError: false,
+		},
+		{
+			name:      "invalid_hostname",
+			hostEnv:   "my-server.local",
+			wantError: true,
+		},
+		{
+			name:       "valid_docker_env",
+			hostEnv:    "0.0.0.0",
+			dockerEnv:  "true",
+			wantHost:   "0.0.0.0",
+			wantDocker: true,
+			wantError:  false,
+		},
+		{
+			name:      "invalid_docker_env",
+			hostEnv:   "10.0.0.1",
+			dockerEnv: "not_a_bool",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig([]string{}, func(s string) string {
+				if s == "SPEEDYBENCH_HOST" {
+					return tt.hostEnv
+				}
+				if s == "SPEEDYBENCH_IN_DOCKER" {
+					return tt.dockerEnv
+				}
+				return ""
+			})
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
 			}
-			return ""
+			if err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+			if cfg.host != tt.wantHost {
+				t.Errorf("expected host %q, got %q", tt.wantHost, cfg.host)
+			}
+			if cfg.port != "8989" {
+				t.Errorf("expected port to be 8989, got %q", cfg.port)
+			}
+			if cfg.healthcheck != false {
+				t.Errorf("expected healthcheck to be false, got %v", cfg.healthcheck)
+			}
+			if cfg.inDocker != tt.wantDocker {
+				t.Errorf("expected inDocker to be %v, got %v", tt.wantDocker, cfg.inDocker)
+			}
 		})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if host != "" {
-			t.Errorf("expected host to be empty, got %q", host)
-		}
-		if port != "8989" {
-			t.Errorf("expected port to be 8989, got %q", port)
-		}
-		if healthcheck != false {
-			t.Errorf("expected healthcheck to be false, got %v", healthcheck)
-		}
-	})
+	}
 }
 
 type dummyFS struct{}
@@ -376,4 +519,110 @@ func TestMainFunc(t *testing.T) {
 			t.Errorf("expected logFatalf to be called")
 		}
 	})
+}
+
+func TestSecurePathMiddleware(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		requestURI string
+		wantStatus int
+	}{
+		{
+			name:       "valid_root",
+			path:       "/",
+			requestURI: "/",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_api",
+			path:       "/api/ip",
+			requestURI: "/api/ip",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_assets",
+			path:       "/assets/main-123_abc.js",
+			requestURI: "/assets/main-123_abc.js",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "double_slash",
+			path:       "//api/ip",
+			requestURI: "//api/ip",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "directory_traversal",
+			path:       "/assets/../main.js",
+			requestURI: "/assets/../main.js",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "null_byte",
+			path:       "/api/ip\x00",
+			requestURI: "/api/ip\x00",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid_char_space",
+			path:       "/api/ip ",
+			requestURI: "/api/ip ",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid_char_quotes",
+			path:       "/api/\"ip\"",
+			requestURI: "/api/\"ip\"",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "path_too_long",
+			path:       "/" + string(make([]byte, 257)),
+			requestURI: "/" + string(make([]byte, 257)),
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := securePathMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := &http.Request{
+				URL: &url.URL{
+					Path: tt.path,
+				},
+				RequestURI: tt.requestURI,
+			}
+
+			rw := &mockResponseWriter{
+				header: make(http.Header),
+			}
+
+			handler.ServeHTTP(rw, req)
+
+			if rw.statusCode != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, rw.statusCode)
+			}
+		})
+	}
+}
+
+type mockResponseWriter struct {
+	header     http.Header
+	statusCode int
+}
+
+func (m *mockResponseWriter) Header() http.Header {
+	return m.header
+}
+
+func (m *mockResponseWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (m *mockResponseWriter) WriteHeader(statusCode int) {
+	m.statusCode = statusCode
 }

@@ -149,9 +149,9 @@ startBtn?.addEventListener('click', (): void => {
 
   worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   worker.onmessage = handleWorkerMessage;
-  worker.postMessage('start');
+  worker.postMessage({ base: window.location.href, type: 'start' });
 
-  fetch('/api/ip')
+  fetch(new URL('./api/ip', window.location.href))
     .then((res: Response): Promise<string> => res.text())
     .then((ip: string): void => {
       const ipText = document.querySelector('#ip');
