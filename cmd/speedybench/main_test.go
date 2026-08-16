@@ -177,11 +177,10 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "server_fail",
-			host: "127.0.0.1",
 			port: portServerFail,
 			setup: func(t *testing.T) func() {
 				lc := net.ListenConfig{}
-				ln, err := lc.Listen(context.Background(), "tcp", net.JoinHostPort("127.0.0.1", portServerFail))
+				ln, err := lc.Listen(context.Background(), "tcp", net.JoinHostPort("localhost", portServerFail))
 				if err != nil {
 					t.Fatalf("listen error: %v", err)
 				}
@@ -317,12 +316,14 @@ func TestRunEdgeCases(t *testing.T) {
 
 func TestParseConfig(t *testing.T) {
 	tests := []struct {
-		name       string
-		hostEnv    string
-		dockerEnv  string
-		wantHost   string
-		wantDocker bool
-		wantError  bool
+		name         string
+		hostEnv      string
+		dockerEnv    string
+		maxConnsEnv  string
+		wantHost     string
+		wantMaxConns int
+		wantDocker   bool
+		wantError    bool
 	}{
 		{
 			name:      "default_port_and_all_host",
@@ -355,10 +356,41 @@ func TestParseConfig(t *testing.T) {
 			wantError:  false,
 		},
 		{
-			name:      "invalid_docker_env",
-			hostEnv:   "10.0.0.1",
-			dockerEnv: "not_a_bool",
-			wantError: true,
+			name:         "invalid_docker_env",
+			hostEnv:      "10.0.0.1",
+			dockerEnv:    "not_a_bool",
+			wantMaxConns: 100,
+			wantError:    true,
+		},
+		{
+			name:         "valid_max_conns_edge",
+			maxConnsEnv:  "6",
+			wantMaxConns: 6,
+			wantError:    false,
+		},
+		{
+			name:         "valid_max_conns",
+			maxConnsEnv:  "150",
+			wantMaxConns: 150,
+			wantError:    false,
+		},
+		{
+			name:         "invalid_max_conns_under_limit",
+			maxConnsEnv:  "5",
+			wantMaxConns: 100,
+			wantError:    true,
+		},
+		{
+			name:         "invalid_max_conns_over_limit",
+			maxConnsEnv:  "65536",
+			wantMaxConns: 100,
+			wantError:    true,
+		},
+		{
+			name:         "invalid_max_conns_string",
+			maxConnsEnv:  "not_a_number",
+			wantMaxConns: 100,
+			wantError:    true,
 		},
 	}
 
@@ -371,6 +403,9 @@ func TestParseConfig(t *testing.T) {
 				if s == "SPEEDYBENCH_IN_DOCKER" {
 					return tt.dockerEnv
 				}
+				if s == "SPEEDYBENCH_MAX_CONNS" {
+					return tt.maxConnsEnv
+				}
 				return ""
 			})
 			if tt.wantError {
@@ -382,8 +417,12 @@ func TestParseConfig(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
-			if cfg.host != tt.wantHost {
-				t.Errorf("expected host %q, got %q", tt.wantHost, cfg.host)
+			expectedHost := tt.wantHost
+			if tt.hostEnv == "" {
+				expectedHost = "127.0.0.1"
+			}
+			if cfg.host != expectedHost {
+				t.Errorf("expected host %q, got %q", expectedHost, cfg.host)
 			}
 			if cfg.port != "8989" {
 				t.Errorf("expected port to be 8989, got %q", cfg.port)
@@ -393,6 +432,13 @@ func TestParseConfig(t *testing.T) {
 			}
 			if cfg.inDocker != tt.wantDocker {
 				t.Errorf("expected inDocker to be %v, got %v", tt.wantDocker, cfg.inDocker)
+			}
+			expectedMaxConns := tt.wantMaxConns
+			if expectedMaxConns == 0 {
+				expectedMaxConns = 100
+			}
+			if cfg.maxConns != expectedMaxConns {
+				t.Errorf("expected maxConns to be %v, got %v", expectedMaxConns, cfg.maxConns)
 			}
 		})
 	}

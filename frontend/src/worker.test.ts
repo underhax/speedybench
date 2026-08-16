@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import './worker.ts';
 
-describe('SpeedyBench Worker', () => {
+describe('SpeedyBenchWorker', () => {
   let originalFetch: typeof fetch;
   let originalXMLHttpRequest: typeof XMLHttpRequest | undefined;
   let originalSetTimeout: typeof setTimeout;
@@ -63,14 +63,19 @@ describe('SpeedyBench Worker', () => {
           body: {
             getReader: () => {
               return {
-                cancel: vi.fn(),
+                cancel: vi.fn().mockResolvedValue(undefined),
                 read: async () => {
                   if (bytesRead > 1024 * 1024) {
                     return { done: true, value: undefined };
                   }
-                  bytesRead += 1024;
-                  performanceNowValue += 5;
-                  return { done: false, value: new Uint8Array(1024) };
+                  bytesRead += 1024 * 256;
+                  performanceNowValue += 100;
+                  return new Promise((resolve) => {
+                    setTimeout(
+                      () => resolve({ done: false, value: new Uint8Array(1024 * 256) }),
+                      5,
+                    );
+                  });
                 },
               };
             },
@@ -127,17 +132,37 @@ describe('SpeedyBench Worker', () => {
   });
 
   it('handles fetch errors during download gracefully', async (): Promise<void> => {
+    let callCount = 0;
     global.fetch = vi.fn().mockImplementation(async (url) => {
       performanceNowValue += 5000;
       const urlStr = typeof url === 'string' ? url : url.toString();
       if (urlStr.includes('/api/garbage')) {
-        throw new Error('Download failed');
+        callCount++;
+        if (callCount === 1) {
+          throw new Error('Download failed');
+        } else {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({
+                body: {
+                  getReader: () => ({
+                    cancel: vi.fn().mockResolvedValue(undefined),
+                    read: async () => ({ done: true }),
+                  }),
+                },
+                ok: true,
+              });
+            }, 10);
+          });
+        }
       }
       return { ok: true };
     });
 
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
+    await onmessage?.({
+      data: { base: 'http://127.0.0.1/', threads: 2, type: 'start' },
+    } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'dl_error', value: 'Error' });
   });
@@ -149,7 +174,12 @@ describe('SpeedyBench Worker', () => {
         throw new Error('Upload failed');
       }
       return {
-        body: { getReader: () => ({ cancel: vi.fn(), read: async () => ({ done: true }) }) },
+        body: {
+          getReader: () => ({
+            cancel: vi.fn().mockResolvedValue(undefined),
+            read: async () => ({ done: true }),
+          }),
+        },
         ok: true,
       };
     });
@@ -194,12 +224,15 @@ describe('SpeedyBench Worker', () => {
         return {
           body: {
             getReader: () => ({
-              cancel: () => {
+              cancel: async () => {
                 cancelCalled = true;
+                throw new Error('cancel failed');
               },
               read: async () => {
                 performanceNowValue += 11000;
-                return { done: false, value: new Uint8Array(10) };
+                return new Promise((resolve) => {
+                  setTimeout(() => resolve({ done: false, value: new Uint8Array(10) }), 5);
+                });
               },
             }),
           },
@@ -293,9 +326,23 @@ describe('SpeedyBench Worker', () => {
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
   });
 
-  it('cancels upload if maxBytes is reached', async (): Promise<void> => {
+  it('cancels download and upload if maxBytes is reached', async (): Promise<void> => {
     let abortCalled = false;
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: vi.fn().mockResolvedValue(undefined),
+              read: async () => ({ done: false, value: new Uint8Array(2 * 1024 * 1024) }),
+            }),
+          },
+          ok: true,
+        };
+      }
+      return { ok: true };
+    });
     (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
       upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
       onload: (() => void) | null = null;
@@ -350,6 +397,176 @@ describe('SpeedyBench Worker', () => {
 
     await new Promise((r) => setTimeout(r, 20));
 
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
+  });
+  it('handles peak calcMethod with less than 4 samples', async (): Promise<void> => {
+    let readCount = 0;
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: async () => {},
+              read: async () => {
+                readCount++;
+                if (readCount > 1) return { done: true, value: undefined };
+                return { done: false, value: new Uint8Array(10 * 1024 * 1024) };
+              },
+            }),
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn();
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: 10 * 1024 * 1024 } as ProgressEvent);
+        }
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: {
+        base: 'http://127.0.0.1/',
+        calcMethod: 'peak',
+        sizeMB: 1,
+        threads: 1,
+        timeoutSec: 10,
+        type: 'start',
+      },
+    } as MessageEvent);
+
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'dl_done' }));
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
+  });
+
+  it('adds final sample if currentTime > 50 in download', async (): Promise<void> => {
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: async () => {},
+              read: async () => {
+                performanceNowValue += 51;
+                return { done: true, value: undefined };
+              },
+            }),
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn();
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: {
+        base: 'http://127.0.0.1/',
+        calcMethod: 'cumulative',
+        sizeMB: 1,
+        threads: 1,
+        timeoutSec: 10,
+        type: 'start',
+      },
+    } as MessageEvent);
+
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'dl_done' }));
+  });
+
+  it('handles peak calcMethod with 4 or more samples', async (): Promise<void> => {
+    let dlCallCount = 0;
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: async () => {},
+              read: async () => {
+                dlCallCount++;
+                if (dlCallCount <= 5) {
+                  performanceNowValue += 300;
+                  return new Promise((resolve) => {
+                    setTimeout(() => resolve({ done: false, value: new Uint8Array(10) }), 260);
+                  });
+                }
+                performanceNowValue += 60;
+                return { done: true, value: undefined };
+              },
+            }),
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    let ulCallCount = 0;
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn();
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        ulCallCount++;
+        if (ulCallCount <= 5) {
+          performanceNowValue += 300;
+        }
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: 1 * 1024 * 1024 } as ProgressEvent);
+        }
+        setTimeout(() => {
+          if (ulCallCount <= 5) {
+            this.send();
+          } else if (this.onload) {
+            this.onload();
+          }
+        }, 260);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: {
+        base: 'http://127.0.0.1/',
+        calcMethod: 'peak',
+        sizeMB: 1,
+        threads: 1,
+        timeoutSec: 10,
+        type: 'start',
+      },
+    } as MessageEvent);
+
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'dl_done' }));
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
   });
 });

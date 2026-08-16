@@ -13,10 +13,11 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestNewHandler(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	if h == nil {
 		t.Fatal("NewHandler returned nil")
 	}
@@ -34,7 +35,7 @@ func TestNewHandler_WithScripts(t *testing.T) {
 	fsys := fstest.MapFS{
 		"index.html": {Data: []byte(`<script>console.log("hello");</script>`)},
 	}
-	h := NewHandler(fsys)
+	h := NewHandler(fsys, 100)
 	if !strings.Contains(h.cspHeader, "sha256-") {
 		t.Errorf("expected cspHeader to contain sha256 hash, got %s", h.cspHeader)
 	}
@@ -42,7 +43,7 @@ func TestNewHandler_WithScripts(t *testing.T) {
 
 func TestRegisterRoutes(t *testing.T) {
 	mux := http.NewServeMux()
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	h.RegisterRoutes(mux)
 
 	tests := []struct {
@@ -67,7 +68,7 @@ func TestHandleIndex(t *testing.T) {
 	fsys := fstest.MapFS{
 		"index.html": {Data: []byte("<html><body>SpeedyBench</body></html>")},
 	}
-	h := NewHandler(fsys)
+	h := NewHandler(fsys, 100)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
 	rr := httptest.NewRecorder()
@@ -90,7 +91,7 @@ func TestHandleIndex(t *testing.T) {
 }
 
 func TestHandleGarbage(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 
 	tests := []struct {
 		name         string
@@ -151,7 +152,7 @@ func (w *discardResponseWriter) WriteHeader(statusCode int) {
 func (w *discardResponseWriter) Flush() {}
 
 func TestHandleGarbageContextCancel(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/garbage?ckSize=10", http.NoBody)
@@ -178,7 +179,7 @@ func (e *errWriter) WriteHeader(_ int) {}
 func (e *errWriter) Flush()            {}
 
 func TestHandleGarbageWriteError(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/garbage?ckSize=10", http.NoBody)
 	ew := &errWriter{}
 	h.handleGarbage(ew, req)
@@ -186,7 +187,7 @@ func TestHandleGarbageWriteError(t *testing.T) {
 }
 
 func TestHandleEmpty(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 
 	tests := []struct {
 		body         io.Reader
@@ -221,7 +222,7 @@ func (m *mockErrReader) Read(_ []byte) (n int, err error) {
 }
 
 func TestHandleEmptyReadError(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 
 	tests := []struct {
 		err  error
@@ -246,7 +247,7 @@ func TestHandleEmptyReadError(t *testing.T) {
 }
 
 func TestGetClientIP(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 
 	tests := []struct {
 		headers    map[string]string
@@ -305,7 +306,7 @@ func TestGetClientIP(t *testing.T) {
 }
 
 func TestSecurityHeaders(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	rr := httptest.NewRecorder()
 	h.setSecurityHeaders(rr)
 
@@ -324,7 +325,7 @@ func TestSecurityHeaders(t *testing.T) {
 }
 
 func TestHandleGarbageBadPool(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	h.garbagePool = sync.Pool{
 		New: func() any { return nil },
 	}
@@ -338,7 +339,7 @@ func TestHandleGarbageBadPool(t *testing.T) {
 }
 
 func TestGetClientIPEmptyRemote(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ip", http.NoBody)
 	req.RemoteAddr = ""
 
@@ -348,7 +349,7 @@ func TestGetClientIPEmptyRemote(t *testing.T) {
 }
 
 func TestHandleIPWriteError(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ip", http.NoBody)
 	ew := &errWriter{}
 	h.handleIP(ew, req)
@@ -356,7 +357,7 @@ func TestHandleIPWriteError(t *testing.T) {
 }
 
 func TestHandleCPU(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/cpu", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.handleCPU(rr, req)
@@ -373,7 +374,7 @@ func TestHandleCPU(t *testing.T) {
 }
 
 func TestHandleCPUWriteError(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/cpu", http.NoBody)
 	ew := &errWriter{}
 	h.handleCPU(ew, req)
@@ -386,7 +387,7 @@ func TestHandleCompressedAsset(t *testing.T) {
 		"assets/index.js.br": {Data: []byte("brotli-compressed")},
 		"assets/index.js.gz": {Data: []byte("gzip-compressed")},
 	}
-	h := NewHandler(fsys)
+	h := NewHandler(fsys, 100)
 
 	tests := []struct {
 		name           string
@@ -427,7 +428,7 @@ func TestHandleCompressedAsset(t *testing.T) {
 }
 
 func TestHandleCompressedAssetNotFound(t *testing.T) {
-	h := NewHandler(fstest.MapFS{})
+	h := NewHandler(fstest.MapFS{}, 100)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/assets/nonexistent.js", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.handleCompressedAsset(rr, req)
@@ -444,7 +445,7 @@ func TestHandleCompressedAssetEdgeCases(t *testing.T) {
 		"assets/noext":      {Data: []byte("noext-orig")},
 		"assets/noext.br":   {Data: []byte("noext-br")},
 	}
-	h := NewHandler(fsys)
+	h := NewHandler(fsys, 100)
 
 	t.Run("is_dir_fallback", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/assets/dirtest", http.NoBody)
@@ -484,4 +485,69 @@ func TestHandleCompressedAssetEdgeCases(t *testing.T) {
 			t.Errorf("status: got %d want %d", rr.Code, http.StatusNotFound)
 		}
 	})
+}
+
+func TestLimitMiddleware(t *testing.T) {
+	h := NewHandler(fstest.MapFS{}, 2)
+	h.maxPerIP = 1
+
+	done := make(chan struct{}, 2)
+
+	handler := h.limitMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+	req.RemoteAddr = "192.168.1.1:1234"
+
+	rr := httptest.NewRecorder()
+	go func() {
+		handler.ServeHTTP(rr, req)
+		done <- struct{}{}
+	}()
+	time.Sleep(2 * time.Millisecond)
+
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req)
+	if rr2.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 for IP limit, got %d", rr2.Code)
+	}
+
+	req3 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+	req3.RemoteAddr = "192.168.1.2:1234"
+	rr3 := httptest.NewRecorder()
+	go func() {
+		handler.ServeHTTP(rr3, req3)
+		done <- struct{}{}
+	}()
+	time.Sleep(2 * time.Millisecond)
+
+	req4 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+	req4.RemoteAddr = "192.168.1.3:1234"
+	rr4 := httptest.NewRecorder()
+	handler.ServeHTTP(rr4, req4)
+	if rr4.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 for global limit, got %d", rr4.Code)
+	}
+
+	<-done
+	<-done
+}
+
+func TestNewHandler_NumCPU(t *testing.T) {
+	originalNumCPU := getNumCPU
+	defer func() { getNumCPU = originalNumCPU }()
+
+	getNumCPU = func() int { return 2 }
+	h := NewHandler(fstest.MapFS{}, 100)
+	if h.maxPerIP != 4 {
+		t.Errorf("expected maxPerIP 4, got %d", h.maxPerIP)
+	}
+
+	getNumCPU = func() int { return 8 }
+	h = NewHandler(fstest.MapFS{}, 100)
+	if h.maxPerIP != 6 {
+		t.Errorf("expected maxPerIP 6, got %d", h.maxPerIP)
+	}
 }

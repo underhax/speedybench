@@ -21,6 +21,10 @@ services:
     cpus: 1.0
     mem_limit: 128m
     mem_reservation: 32m
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     security_opt:
       - no-new-privileges:true
     cap_drop:

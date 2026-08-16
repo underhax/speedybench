@@ -1,17 +1,24 @@
 export const ru = {
   cancel: 'Отмена',
-  download: 'Скачать',
+  download: 'Загрузка',
   ip: 'IP:',
   jitter: 'Джиттер',
   ping: 'Пинг',
   settings_apply: 'Применить',
+  settings_calc_cum_desc:
+    'Строгое математическое среднее за все время. Точно отражает реальную скорость передачи данных.',
+  settings_calc_cum_title: 'Среднее за весь тест',
+  settings_calc_method: 'Метод расчета',
+  settings_calc_peak_desc:
+    'Сглаживание: отсекает фазу разгона и выбросы, показывая чистую пропускную способность канала.',
+  settings_calc_peak_title: 'Пиковая стабильная',
   settings_hint: 'Тест завершится, как только будет достигнут любой из лимитов.',
   settings_multi: 'Многопоток',
   settings_reset: 'Сбросить',
   settings_save: 'Сохранять в браузере (localStorage)',
   settings_sec: 'с',
   settings_single: 'Один поток',
-  settings_size: 'Объем теста',
+  settings_size: 'Размер данных',
   settings_threads: 'Соединения:',
   settings_time: 'Ограничение времени',
   settings_title: 'Настройки',
@@ -19,5 +26,5 @@ export const ru = {
   title: 'Тест скорости',
   unit_mbps: 'Мбит/с',
   unit_ms: 'мс',
-  upload: 'Загрузить',
+  upload: 'Отправка',
 };

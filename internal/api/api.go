@@ -25,15 +25,26 @@ import (
 	"time"
 )
 
+func defaultNumCPU() int {
+	return runtime.NumCPU()
+}
+
+var getNumCPU = defaultNumCPU
+
 // Handler manages throughput testing endpoints and coordinates memory pooling for zero-allocation payload generation.
 type Handler struct {
-	garbagePool sync.Pool
-	assetFS     fs.FS
-	cspHeader   string
+	garbagePool    sync.Pool
+	assetFS        fs.FS
+	globalConns    chan struct{}
+	ipConns        map[string]int
+	cspHeader      string
+	maxGlobalConns int
+	maxPerIP       int
+	ipMutex        sync.Mutex
 }
 
 // NewHandler initializes a pre-allocated sync.Pool to prevent garbage collection spikes during high-concurrency download tests.
-func NewHandler(assetFS fs.FS) *Handler {
+func NewHandler(assetFS fs.FS, maxGlobalConns int) *Handler {
 	csp := "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
 
 	if indexBytes, err := fs.ReadFile(assetFS, "index.html"); err == nil {
@@ -44,6 +55,11 @@ func NewHandler(assetFS fs.FS) *Handler {
 		}
 	}
 
+	maxPerIP := 6
+	if getNumCPU() <= 4 {
+		maxPerIP = 4
+	}
+
 	return &Handler{
 		garbagePool: sync.Pool{
 			New: func() any {
@@ -52,8 +68,12 @@ func NewHandler(assetFS fs.FS) *Handler {
 				return &b
 			},
 		},
-		assetFS:   assetFS,
-		cspHeader: csp,
+		assetFS:        assetFS,
+		cspHeader:      csp,
+		maxGlobalConns: maxGlobalConns,
+		globalConns:    make(chan struct{}, maxGlobalConns),
+		ipConns:        make(map[string]int),
+		maxPerIP:       maxPerIP,
 	}
 }
 
@@ -79,8 +99,8 @@ func extractScriptHashes(html string) []string {
 // RegisterRoutes binds throughput and metadata endpoints to the provided multiplexer for integration into the main server lifecycle.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/", h.handleIndex)
-	mux.HandleFunc("/api/garbage", h.handleGarbage)
-	mux.HandleFunc("/api/empty", h.handleEmpty)
+	mux.HandleFunc("/api/garbage", h.limitMiddleware(h.handleGarbage))
+	mux.HandleFunc("/api/empty", h.limitMiddleware(h.handleEmpty))
 	mux.HandleFunc("/api/ip", h.handleIP)
 	mux.HandleFunc("/api/cpu", h.handleCPU)
 	mux.HandleFunc("/assets/", h.handleCompressedAsset)
@@ -293,4 +313,38 @@ func parseTimeout(r *http.Request) int {
 		}
 	}
 	return timeoutSec
+}
+
+func (h *Handler) limitMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := h.getClientIP(r)
+
+		h.ipMutex.Lock()
+		if h.ipConns[ip] >= h.maxPerIP {
+			h.ipMutex.Unlock()
+			http.Error(w, "Too Many Requests from this IP", http.StatusTooManyRequests)
+			return
+		}
+		h.ipConns[ip]++
+		h.ipMutex.Unlock()
+
+		defer func() {
+			h.ipMutex.Lock()
+			h.ipConns[ip]--
+			if h.ipConns[ip] <= 0 {
+				delete(h.ipConns, ip)
+			}
+			h.ipMutex.Unlock()
+		}()
+
+		select {
+		case h.globalConns <- struct{}{}:
+			defer func() { <-h.globalConns }()
+		default:
+			http.Error(w, "Server Overloaded", http.StatusTooManyRequests)
+			return
+		}
+
+		next(w, r)
+	}
 }

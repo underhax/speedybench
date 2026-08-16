@@ -112,6 +112,56 @@
           >
             The test completes when either limit is reached first.
           </p>
+          <div class="setting-group radio-group">
+            <div
+              class="setting-label"
+              data-i18n="settings_calc_method"
+            >
+              Calculation Method
+            </div>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="calcMethod"
+                  value="cumulative"
+                >
+                <div class="radio-content">
+                  <span
+                    class="radio-title"
+                    data-i18n="settings_calc_cum_title"
+                    >Cumulative Average</span
+                  >
+                  <span
+                    class="radio-desc"
+                    data-i18n="settings_calc_cum_desc"
+                    >Strict mathematical average over the entire test duration. Accurate for true
+                    data transfer speeds.</span
+                  >
+                </div>
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="calcMethod"
+                  value="peak"
+                >
+                <div class="radio-content">
+                  <span
+                    class="radio-title"
+                    data-i18n="settings_calc_peak_title"
+                    >Peak Sustained</span
+                  >
+                  <span
+                    class="radio-desc"
+                    data-i18n="settings_calc_peak_desc"
+                    >Smart smoothing that drops the initial warmup phase and anomalies to show pure
+                    channel capacity.</span
+                  >
+                </div>
+              </label>
+            </div>
+          </div>
           <div class="setting-group-toggle">
             <div
               class="setting-label"

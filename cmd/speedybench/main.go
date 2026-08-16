@@ -64,6 +64,7 @@ type appConfig struct {
 	port        string
 	healthcheck bool
 	inDocker    bool
+	maxConns    int
 }
 
 func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err error) {
@@ -104,6 +105,16 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 		cfg.inDocker = inDocker
 	}
 
+	cfg.maxConns = 100
+	maxConnsStr := getenv("SPEEDYBENCH_MAX_CONNS")
+	if maxConnsStr != "" {
+		maxConns, parseErr := strconv.Atoi(maxConnsStr)
+		if parseErr != nil || maxConns < 6 || maxConns > 65535 {
+			return cfg, errors.New("invalid SPEEDYBENCH_MAX_CONNS - must be an integer between 6 and 65535")
+		}
+		cfg.maxConns = maxConns
+	}
+
 	return cfg, nil
 }
 
@@ -129,7 +140,7 @@ func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
 		return fmt.Errorf("failed to initialize embedded frontend assets: %w", err)
 	}
 
-	apiHandler := api.NewHandler(fSys)
+	apiHandler := api.NewHandler(fSys, cfg.maxConns)
 	apiHandler.RegisterRoutes(mux)
 
 	secureMux := securePathMiddleware(mux)

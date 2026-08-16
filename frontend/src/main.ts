@@ -102,10 +102,12 @@ interface Settings {
   size: number;
   time: number;
   threads: number;
+  calcMethod: 'cumulative' | 'peak';
   save: boolean;
 }
 
 const defaultSettings: Settings = {
+  calcMethod: 'cumulative',
   save: false,
   size: 100,
   threads: 4,
@@ -120,9 +122,9 @@ export function initServerInfo(): Promise<void> {
     .then((text) => {
       const cpus = Number.parseInt(text, 10);
       if (!Number.isNaN(cpus) && cpus > 0) {
-        serverThreads = cpus;
+        serverThreads = cpus <= 4 ? 4 : 6;
         if (currentSettings.threads > 1) {
-          currentSettings.threads = cpus;
+          currentSettings.threads = serverThreads;
         }
       }
     })
@@ -161,6 +163,14 @@ function saveSettings(): void {
   }
 }
 
+export function updateSliderGradient(slider: HTMLInputElement): void {
+  const min = Number.parseFloat(slider.min) || 0;
+  const max = Number.parseFloat(slider.max) || 100;
+  const val = Number.parseFloat(slider.value) || 0;
+  const percent = max > min ? ((val - min) / (max - min)) * 100 : 0;
+  slider.style.setProperty('--value-percent', `${percent}%`);
+}
+
 function setupSettingsModal(): void {
   const modal = document.querySelector('#settings-modal') as HTMLDivElement;
   const toggleBtn = document.querySelector('#settings-toggle') as HTMLButtonElement;
@@ -175,6 +185,12 @@ function setupSettingsModal(): void {
   const labelMulti = document.querySelector('#label-multi') as HTMLSpanElement;
   const labelSingle = document.querySelector('#label-single') as HTMLSpanElement;
   const saveChk = document.querySelector('#save-settings-chk') as HTMLInputElement;
+  const radioCum = document.querySelector(
+    'input[name="calcMethod"][value="cumulative"]',
+  ) as HTMLInputElement;
+  const radioPeak = document.querySelector(
+    'input[name="calcMethod"][value="peak"]',
+  ) as HTMLInputElement;
 
   const sizeVal = document.querySelector('#size-val') as HTMLSpanElement;
   const timeVal = document.querySelector('#time-val') as HTMLSpanElement;
@@ -187,6 +203,8 @@ function setupSettingsModal(): void {
     !timeSlider ||
     !threadsToggle ||
     !saveChk ||
+    !radioCum ||
+    !radioPeak ||
     !applyBtn ||
     !resetBtn
   )
@@ -197,7 +215,15 @@ function setupSettingsModal(): void {
   const updateUI = (): void => {
     sizeSlider.value = draftSettings.size.toString();
     timeSlider.value = draftSettings.time.toString();
+    updateSliderGradient(sizeSlider);
+    updateSliderGradient(timeSlider);
     saveChk.checked = draftSettings.save;
+
+    if (draftSettings.calcMethod === 'peak') {
+      radioPeak.checked = true;
+    } else {
+      radioCum.checked = true;
+    }
 
     sizeVal.textContent = draftSettings.size.toString();
     timeVal.textContent = draftSettings.time.toString();
@@ -252,11 +278,13 @@ function setupSettingsModal(): void {
     const val = Number.parseInt((e.target as HTMLInputElement).value, 10);
     draftSettings.size = val;
     sizeVal.textContent = val.toString();
+    updateSliderGradient(sizeSlider);
   });
   timeSlider.addEventListener('input', (e) => {
     const val = Number.parseInt((e.target as HTMLInputElement).value, 10);
     draftSettings.time = val;
     timeVal.textContent = val.toString();
+    updateSliderGradient(timeSlider);
   });
   threadsToggle?.addEventListener('click', () => {
     draftSettings.threads = draftSettings.threads > 1 ? 1 : serverThreads;
@@ -272,6 +300,16 @@ function setupSettingsModal(): void {
   });
   saveChk.addEventListener('change', (e) => {
     draftSettings.save = (e.target as HTMLInputElement).checked;
+  });
+  radioCum.addEventListener('change', (e) => {
+    if ((e.target as HTMLInputElement).checked) {
+      draftSettings.calcMethod = 'cumulative';
+    }
+  });
+  radioPeak.addEventListener('change', (e) => {
+    if ((e.target as HTMLInputElement).checked) {
+      draftSettings.calcMethod = 'peak';
+    }
   });
 }
 
@@ -350,6 +388,7 @@ startBtn?.addEventListener('click', (): void => {
   worker.onmessage = handleWorkerMessage;
   worker.postMessage({
     base: window.location.href,
+    calcMethod: currentSettings.calcMethod,
     sizeMB: currentSettings.size,
     threads: currentSettings.threads,
     timeoutSec: currentSettings.time,

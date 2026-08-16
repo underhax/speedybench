@@ -12,9 +12,13 @@
   --ul-color: #ab6ae2;
   --ping-color: #fff38e;
   --empty-meter: #9193a8;
+  --empty-range: #9193a8;
+  --range-thumb-color: #30b3b0;
   --icon-fill: currentColor;
   --header-modal-bg: #212233;
   --modal-action-border: #5c5c6b;
+  --radio-btn-bg: transparent;
+  --radio-btn-border: #d4d0ca;
 }
 
 html.theme-light {
@@ -29,11 +33,13 @@ html.theme-light {
   --dl-color: #2bc4bf;
   --ul-color: #ab6ae2;
   --ping-color: #deca25;
-  --empty-meter: #9193a8;
+  --empty-range: #e0e0e0;
   --icon-fill: currentColor;
   --text-color: #747474;
   --header-modal-bg: #f7f7f7;
   --modal-action-border: #eaeaea;
+  --radio-btn-bg: transparent;
+  --radio-btn-border: #747474;
 }
 
 html,
@@ -348,8 +354,7 @@ div.testGroup {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  margin-bottom: 15px;
+  padding: 12px 20px;
   background-color: var(--header-modal-bg);
   border-bottom: 1px solid var(--header-border);
   border-radius: 12px 12px 0 0;
@@ -379,8 +384,8 @@ div.testGroup {
 .modal-body {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px;
+  gap: 15px;
+  padding: 20px;
 }
 
 .setting-group label {
@@ -401,17 +406,151 @@ div.testGroup {
   cursor: pointer;
 }
 
+@supports (-moz-appearance: none) {
+  .setting-group input[type='range'] {
+    -moz-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+}
+
+@supports (-webkit-appearance: none) {
+  .setting-group input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+}
+
 @supports (accent-color: red) {
   .setting-group input[type='range'] {
     accent-color: var(--dl-color);
   }
 }
 
+.setting-group input[type='range']::-moz-range-track {
+  height: 6px;
+  background: var(--empty-range);
+  border-radius: 10px;
+}
+
+.setting-group input[type='range']::-moz-range-progress {
+  height: 6px;
+  background: var(--dl-color);
+  border-radius: 10px;
+}
+
+.setting-group input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  -moz-appearance: none;
+  appearance: none;
+  background: var(--range-thumb-color);
+  border: none;
+  border-radius: 50%;
+}
+
+.setting-group input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(
+    to right,
+    var(--dl-color) var(--value-percent, 0%),
+    var(--empty-range) var(--value-percent, 0%)
+  );
+  border-radius: 10px;
+}
+
+.setting-group input[type='range']::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--range-thumb-color);
+  border: none;
+  border-radius: 50%;
+}
+
 .settings-hint {
-  margin: -10px 0 10px 0;
+  margin: -10px 0 5px;
   font-size: 0.85rem;
   color: var(--empty-meter);
   text-align: left;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.radio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-group label.radio-option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  margin-bottom: 0;
+  font-weight: normal;
+  text-align: left;
+  cursor: pointer;
+}
+
+.radio-option input[type='radio'] {
+  display: grid;
+  flex-shrink: 0;
+  place-content: center;
+  width: 1.25em;
+  height: 1.25em;
+  margin: 2px 0 0 0;
+  font: inherit;
+  color: currentColor;
+  appearance: none;
+  cursor: pointer;
+  background-color: var(--radio-btn-bg);
+  border: 1px solid var(--radio-btn-border);
+  border-radius: 50%;
+  transition: all 0.2s ease-in-out;
+}
+
+.radio-option input[type='radio']::before {
+  width: 0.65em;
+  height: 0.65em;
+  content: '';
+  background-color: var(--dl-color);
+  border-radius: 50%;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+}
+
+.radio-option input[type='radio']:checked {
+  border-color: var(--dl-color);
+}
+
+.radio-option input[type='radio']:checked::before {
+  transform: scale(1);
+}
+
+.radio-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.radio-title {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-color);
+}
+
+.radio-desc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--empty-meter);
 }
 
 .checkbox-group label {
@@ -420,6 +559,7 @@ div.testGroup {
   align-items: center;
   justify-content: flex-start;
   margin: 0;
+  font-size: 0.85rem;
   font-weight: normal;
   cursor: pointer;
 }
@@ -465,8 +605,8 @@ div.testGroup {
   display: flex;
   gap: 20px;
   justify-content: flex-end;
-  padding-top: 30px;
-  margin-top: 15px;
+  padding-top: 20px;
+  margin-top: 10px;
   border-top: 1px solid var(--modal-action-border);
 }
 
@@ -513,6 +653,11 @@ div.testGroup {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-color);
+}
+
+.radio-group .setting-label {
+  margin-bottom: 12px;
+  text-align: left;
 }
 
 .toggle-container {

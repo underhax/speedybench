@@ -1,8 +1,19 @@
 # SpeedyBench
 
+[![CI](https://github.com/underhax/speedybench/actions/workflows/ci.yml/badge.svg)](https://github.com/underhax/speedybench/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/underhax/speedybench?label=Release&include_prereleases)](https://github.com/underhax/speedybench/releases)
+[![GitHub last commit](https://img.shields.io/github/last-commit/underhax/speedybench)](https://github.com/underhax/speedybench/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/underhax/speedybench)](https://github.com/underhax/speedybench/issues)
+[![GitHub repo size](https://img.shields.io/github/repo-size/underhax/speedybench)](https://github.com/underhax/speedybench)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 SpeedyBench is a lightweight, self-hosted network speed test application. It provides an intuitive interface to accurately measure your network's ping, jitter, download, and upload speeds.
 
 The backend is built with Go for maximum performance and minimal resource footprint, while the frontend is a modern, responsive single-page application built with TypeScript and Vite.
+
+**Demo**
+
+<a href="https://raw.githubusercontent.com/underhax/speedybench/main/.github/demo/demo.avif" target="_blank"><img src=".github/demo/demo.avif?raw=true" width="400" alt="Animated Demo (Modern Browser Required)"></a>
 
 ## Features
 
@@ -35,6 +46,7 @@ SpeedyBench can be configured using the following environment variables:
 
 - `SPEEDYBENCH_HOST`: If not provided, the server listens on localhost (`127.0.0.1`) by default for security reasons. If set to `all`, it will listen on all available interfaces. Alternatively, you can explicitly specify an IP address to bind to a specific interface.
 - `SPEEDYBENCH_PORT`: The port for the web server to listen on (default: `8989`). For security reasons, the port must be strictly within the restricted range of `1025` to `65535` to prevent binding to privileged ports. *(Note: When using Docker, you do not need to change this variable; simply map your desired host port to the container's default `8989` port, e.g., `-p 9090:8989`).*
+- `SPEEDYBENCH_MAX_CONNS`: The maximum number of concurrent speed test connections allowed globally (default: `100`). This is a DoS protection feature to prevent server resource exhaustion. If provided, it must be an integer between `6` and `65535`.
 
 ##### Examples
 
@@ -87,6 +99,7 @@ docker run -d \
   -p 127.0.0.1:8989:8989 \
   --restart always \
   --user 65534:65534 \
+  --ulimit nofile=65535:65535 \
   --cpus 1.0 \
   --memory 128m \
   --memory-reservation 32m \
@@ -101,6 +114,18 @@ docker run -d \
   --health-start-period 10s \
   ghcr.io/underhax/speedybench:latest
 ```
+
+## Client-Side Settings
+
+SpeedyBench offers several customizable parameters directly from the web interface to tailor the benchmark to your specific network environment:
+
+- **Data Size**: The maximum volume of data (in megabytes) transferred during a single test phase (download or upload).
+- **Time Limit**: The maximum duration (in seconds) allowed for each test phase.
+  > **Note**: The active test phase completes automatically as soon as either the Data Size or the Time Limit is reached, whichever occurs first.
+- **Calculation Method**: Toggles between Cumulative Average and Peak Sustained. **Cumulative Average** calculates the total data transferred over the total time elapsed. **Peak Sustained** filters out the most unstable portions of the test (dropping the bottom 30% and top 10% of samples) to provide a more accurate representation of your stable sustained bandwidth.
+- **Connections**: Toggles between Single and Multi-stream modes. **Multi-stream** opens multiple concurrent HTTP connections to fully saturate available bandwidth, which is ideal for testing maximum throughput. **Single-stream** evaluates the throughput and stability of a single TCP connection.
+  > **Note**: The exact number of concurrent threads in Multi-stream mode is automatically determined by the number of available CPU cores on the backend server (capped at `4` threads for servers with 4 cores or fewer, and `6` threads for servers with more than 4 cores).
+- **Save in browser**: If enabled, your configuration preferences are persisted across browser sessions using `localStorage`. If disabled, they are stored temporarily in `sessionStorage` and reset when the tab is closed.
 
 ## Reverse Proxy (Nginx)
 

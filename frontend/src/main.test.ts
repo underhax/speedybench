@@ -25,7 +25,7 @@ const MockWorker = vi.fn(function (this: Worker) {
   return this;
 });
 
-describe('Main UI', () => {
+describe('Main', () => {
   let fetchMock: Mock;
 
   beforeEach((): void => {
@@ -70,7 +70,7 @@ describe('Main UI', () => {
   it('initializes UI correctly, populates languages, and toggles dropdown', async (): Promise<void> => {
     document.body.insertAdjacentHTML(
       'beforeend',
-      '<div id="settings-toggle"></div><div id="settings-modal"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>',
+      '<div id="settings-toggle"></div><div id="settings-modal"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>',
     );
 
     localStorage.setItem(
@@ -204,6 +204,15 @@ describe('Main UI', () => {
     await new Promise((r) => setTimeout(r, 10));
   });
 
+  it('sets serverThreads to 4 when cpus is less than or equal to 4', async (): Promise<void> => {
+    fetchMock.mockResolvedValueOnce({
+      text: vi.fn().mockResolvedValue('3'),
+    });
+    const { initServerInfo } = await import('./main.ts');
+    await initServerInfo();
+    expect(fetchMock).toHaveBeenCalledWith('./api/cpu');
+  });
+
   it('handles settings modal interactions and persistence', async (): Promise<void> => {
     document.body.innerHTML = `
       <div id="settings-toggle"></div>
@@ -217,6 +226,8 @@ describe('Main UI', () => {
         <button id="threads-toggle"></button>
         <span id="threads-icon"></span>
         <span id="label-single"></span>
+        <input type="radio" name="calcMethod" value="cumulative">
+        <input type="radio" name="calcMethod" value="peak">
         <input type="checkbox" id="save-settings-chk">
         <button id="settings-apply-btn"></button>
         <button id="settings-reset-btn"></button>
@@ -300,7 +311,7 @@ describe('Main UI', () => {
 
   it('handles invalid json in storage gracefully', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.setItem('speedybench_settings', '{invalid json}');
     sessionStorage.removeItem('speedybench_settings');
@@ -313,9 +324,20 @@ describe('Main UI', () => {
     expect(true).toBe(true);
   });
 
+  it('does not open settings when pressing other keys', async () => {
+    document.body.innerHTML =
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+    await import('./main.ts');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    const modal = document.querySelector('#settings-modal') as HTMLDivElement;
+    expect(modal.classList.contains('hidden')).toBe(true);
+  });
+
   it('saves to localStorage when save is checked', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
     await import('./main.ts');
     await import('./main.ts');
 
@@ -335,7 +357,7 @@ describe('Main UI', () => {
     vi.stubGlobal('navigator', { hardwareConcurrency: undefined });
 
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.removeItem('speedybench_settings');
     sessionStorage.removeItem('speedybench_settings');
@@ -348,7 +370,7 @@ describe('Main UI', () => {
 
   it('loads settings from sessionStorage correctly', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.removeItem('speedybench_settings');
     sessionStorage.setItem(
@@ -358,5 +380,77 @@ describe('Main UI', () => {
     await import('./main.ts');
 
     expect(document.querySelector('#size-val')?.textContent).toBe('999');
+  });
+
+  it('handles calcMethod radio buttons correctly', async (): Promise<void> => {
+    document.body.innerHTML =
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+
+    localStorage.setItem(
+      'speedybench_settings',
+      JSON.stringify({ calcMethod: 'peak', save: true, size: 200, threads: 8, time: 20 }),
+    );
+    await import('./main.ts');
+
+    const radioPeak = document.querySelector(
+      'input[name="calcMethod"][value="peak"]',
+    ) as HTMLInputElement;
+    const radioCum = document.querySelector(
+      'input[name="calcMethod"][value="cumulative"]',
+    ) as HTMLInputElement;
+
+    expect(radioPeak.checked).toBe(true);
+    expect(radioCum.checked).toBe(false);
+
+    radioCum.checked = false;
+    radioCum.dispatchEvent(new Event('change'));
+
+    radioCum.checked = true;
+    radioCum.dispatchEvent(new Event('change'));
+
+    radioPeak.checked = false;
+    radioPeak.dispatchEvent(new Event('change'));
+
+    const applyBtn = document.querySelector('#settings-apply-btn') as HTMLElement;
+    applyBtn.click();
+
+    expect(localStorage.getItem('speedybench_settings')).toContain('"calcMethod":"cumulative"');
+
+    radioPeak.checked = true;
+    radioPeak.dispatchEvent(new Event('change'));
+    applyBtn.click();
+    expect(localStorage.getItem('speedybench_settings')).toContain('"calcMethod":"peak"');
+  });
+});
+
+describe('updateSliderGradient()', () => {
+  it('updates slider background properly even with missing min/max', async () => {
+    const { updateSliderGradient } = await import('./main.ts');
+    const input = document.createElement('input');
+    input.type = 'range';
+    updateSliderGradient(input);
+    expect(input.style.getPropertyValue('--value-percent')).toBe('0%');
+  });
+
+  it('calculates correct percentage', async () => {
+    const { updateSliderGradient } = await import('./main.ts');
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '10';
+    input.max = '110';
+    input.value = '60';
+    updateSliderGradient(input);
+    expect(input.style.getPropertyValue('--value-percent')).toBe('50%');
+  });
+
+  it('handles max <= min gracefully', async () => {
+    const { updateSliderGradient } = await import('./main.ts');
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '100';
+    input.max = '10';
+    input.value = '50';
+    updateSliderGradient(input);
+    expect(input.style.getPropertyValue('--value-percent')).toBe('0%');
   });
 });

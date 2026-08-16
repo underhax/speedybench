@@ -21,10 +21,10 @@ let currentLanguage = 'en';
 
 export const availableLanguages = [
   { code: 'en', name: 'English' },
-  { code: 'ru', name: 'Русский' },
+  { code: 'de', name: 'Deutsch' },
   { code: 'es', name: 'Español' },
   { code: 'fr', name: 'Français' },
-  { code: 'de', name: 'Deutsch' },
+  { code: 'ru', name: 'Русский' },
   { code: 'uk', name: 'Українська' },
 ];
 
