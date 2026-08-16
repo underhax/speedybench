@@ -70,12 +70,12 @@ describe('Main', () => {
   it('initializes UI correctly, populates languages, and toggles dropdown', async (): Promise<void> => {
     document.body.insertAdjacentHTML(
       'beforeend',
-      '<div id="settings-toggle"></div><div id="settings-modal"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>',
+      '<div id="settings-toggle"></div><div id="settings-modal"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>',
     );
 
     localStorage.setItem(
       'speedybench_settings',
-      JSON.stringify({ save: true, size: 100, threads: 1, time: 15 }),
+      JSON.stringify({ save: true, size: 200, threads: 1, time: 15 }),
     );
     const { initServerInfo } = await import('./main.ts');
     await initServerInfo();
@@ -138,7 +138,7 @@ describe('Main', () => {
     emitWorkerMessage({ type: 'status', value: 'downloading' });
     emitWorkerMessage({ bytes: 0, timeMs: 0, type: 'dl_progress', value: '100' });
     expect(document.querySelector('#dlText')?.textContent).toBe('100');
-    expect(document.querySelector('#dlSubText')?.textContent).toBe('0 MB / 0.0 s');
+    expect(document.querySelector('#dlSubText')?.textContent).toBe('0.0 MB / 0.0 s');
 
     emitWorkerMessage({ bytes: 5242880, timeMs: 1500, type: 'dl_progress', value: '120' });
     expect(document.querySelector('#dlText')?.textContent).toBe('120');
@@ -219,7 +219,7 @@ describe('Main', () => {
       <div id="settings-modal" class="hidden">
         <button id="modal-close"></button>
         <span id="size-val"></span>
-        <input type="range" id="size-slider" min="10" max="1000" step="10" value="100">
+        <input type="range" id="size-slider" min="100" max="1000" step="100" value="200">
         <span id="time-val"></span>
         <input type="range" id="time-slider" min="10" max="30" step="5" value="15">
         <span id="label-multi"></span>
@@ -260,7 +260,7 @@ describe('Main', () => {
 
     const resetBtn = document.querySelector('#settings-reset-btn') as HTMLElement;
     resetBtn.click();
-    expect(document.querySelector('#size-val')?.textContent).toBe('100');
+    expect(document.querySelector('#size-val')?.textContent).toBe('200');
     expect(document.querySelector('#time-val')?.textContent).toBe('15');
 
     sizeSlider.value = '500';
@@ -311,7 +311,7 @@ describe('Main', () => {
 
   it('handles invalid json in storage gracefully', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.setItem('speedybench_settings', '{invalid json}');
     sessionStorage.removeItem('speedybench_settings');
@@ -326,7 +326,7 @@ describe('Main', () => {
 
   it('does not open settings when pressing other keys', async () => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
     await import('./main.ts');
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
@@ -337,7 +337,7 @@ describe('Main', () => {
 
   it('saves to localStorage when save is checked', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
     await import('./main.ts');
     await import('./main.ts');
 
@@ -357,7 +357,7 @@ describe('Main', () => {
     vi.stubGlobal('navigator', { hardwareConcurrency: undefined });
 
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.removeItem('speedybench_settings');
     sessionStorage.removeItem('speedybench_settings');
@@ -370,7 +370,7 @@ describe('Main', () => {
 
   it('loads settings from sessionStorage correctly', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.removeItem('speedybench_settings');
     sessionStorage.setItem(
@@ -384,7 +384,7 @@ describe('Main', () => {
 
   it('handles calcMethod radio buttons correctly', async (): Promise<void> => {
     document.body.innerHTML =
-      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="10" max="1000" step="10" value="100"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
+      '<div id="settings-toggle"></div><div id="settings-modal" class="hidden"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>';
 
     localStorage.setItem(
       'speedybench_settings',

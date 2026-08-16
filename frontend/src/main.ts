@@ -1,9 +1,11 @@
 import './style.css';
+import { drawAreaChart } from './chart.ts';
 import {
   applyTranslations,
   availableLanguages,
   getCurrentLanguage,
   initLanguage,
+  localize,
   setLanguage,
 } from './localize.ts';
 import { initTheme, toggleTheme } from './theme.ts';
@@ -15,12 +17,12 @@ const svgs = import.meta.glob('./icons/*.svg', {
 }) as Record<string, string>;
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 MB';
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes === 0) return `0.0 ${localize('unit_mb')}`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} ${localize('unit_mb')}`;
 }
 
 function formatTime(ms: number): string {
-  return `${(ms / 1000).toFixed(1)} s`;
+  return `${(ms / 1000).toFixed(1)} ${localize('settings_sec')}`;
 }
 
 function updateMetric(
@@ -51,6 +53,8 @@ function injectIcons(): void {
   setIcon('lang-icon', 'language');
   setIcon('logo-icon', 'logo');
   setIcon('settings-toggle', 'settings');
+  setIcon('dl-info-icon', 'info');
+  setIcon('ul-info-icon', 'info');
 }
 
 function updateThemeIcon(): void {
@@ -109,7 +113,7 @@ interface Settings {
 const defaultSettings: Settings = {
   calcMethod: 'cumulative',
   save: false,
-  size: 100,
+  size: 200,
   threads: 4,
   time: 15,
 };
@@ -321,6 +325,115 @@ applyTranslations();
 setupLangSelector();
 setupSettingsModal();
 
+type SampleObj = { speed: number; bytes: number; timeMs: number };
+let dlSamples: SampleObj[] = [];
+let ulSamples: SampleObj[] = [];
+let dlFinalVal = '';
+let ulFinalVal = '';
+
+function setupDetailsModal(): void {
+  const modal = document.querySelector('#details-modal') as HTMLDivElement;
+  const closeBtn = document.querySelector('#details-close') as HTMLButtonElement;
+  const dlBtn = document.querySelector('#dl-info-btn') as HTMLButtonElement;
+  const ulBtn = document.querySelector('#ul-info-btn') as HTMLButtonElement;
+  const tbody = document.querySelector('#details-tbody') as HTMLTableSectionElement;
+  const title = document.querySelector('#details-title') as HTMLHeadingElement;
+
+  if (!modal || !closeBtn || !dlBtn || !ulBtn || !tbody) return;
+
+  const openModal = (
+    type: 'Download' | 'Upload',
+    samples: SampleObj[],
+    finalSpeed: string,
+  ): void => {
+    title.textContent =
+      type === 'Download' ? localize('details_title_dl') : localize('details_title_ul');
+
+    tbody.innerHTML = '';
+    const theadRow = document.createElement('tr');
+
+    const thTime = document.createElement('th');
+    thTime.setAttribute('data-i18n', 'details_time');
+    thTime.textContent = localize('details_time');
+
+    const thSize = document.createElement('th');
+    thSize.setAttribute('data-i18n', 'details_size');
+    thSize.textContent = localize('details_size');
+
+    const thSpeed = document.createElement('th');
+    thSpeed.setAttribute('data-i18n', 'details_speed');
+    thSpeed.textContent = localize('details_speed');
+
+    theadRow.appendChild(thTime);
+    theadRow.appendChild(thSize);
+    theadRow.appendChild(thSpeed);
+    tbody.appendChild(theadRow);
+
+    samples.forEach((val) => {
+      const timeStr = `${val.timeMs.toFixed(0)} ${localize('unit_ms')}`;
+      const sizeStr = `${(val.bytes / 1024 / 1024).toFixed(2)} ${localize('unit_mb')}`;
+      const speedStr = `${val.speed.toFixed(2)} ${localize('unit_mbps')}`;
+
+      const tr = document.createElement('tr');
+      const tdTime = document.createElement('td');
+      const tdSize = document.createElement('td');
+      const tdSpeed = document.createElement('td');
+
+      tdTime.textContent = timeStr;
+      tdSize.textContent = sizeStr;
+      tdSpeed.textContent = speedStr;
+
+      tr.appendChild(tdTime);
+      tr.appendChild(tdSize);
+      tr.appendChild(tdSpeed);
+      tbody.appendChild(tr);
+    });
+
+    if (samples.length > 0) {
+      const last = samples[samples.length - 1];
+      if (!last) return;
+
+      const summaryTr = document.createElement('tr');
+      summaryTr.classList.add('details-summary-row');
+
+      const tdSumLabel = document.createElement('td');
+      tdSumLabel.setAttribute('colspan', '2');
+      const methodKey =
+        currentSettings.calcMethod === 'peak'
+          ? 'settings_calc_peak_title'
+          : 'settings_calc_cum_title';
+      tdSumLabel.innerHTML = `${localize('details_summary')}<br><span class="details-method-name">${localize(methodKey)}</span>`;
+
+      const tdSumSpeed = document.createElement('td');
+      tdSumSpeed.textContent = `${finalSpeed} ${localize('unit_mbps')}`;
+
+      summaryTr.appendChild(tdSumLabel);
+      summaryTr.appendChild(tdSumSpeed);
+      tbody.appendChild(summaryTr);
+    }
+
+    modal.classList.remove('hidden');
+  };
+
+  const closeModal = (): void => {
+    modal.classList.add('hidden');
+  };
+
+  dlBtn.addEventListener('click', () => openModal('Download', dlSamples, dlFinalVal));
+  ulBtn.addEventListener('click', () => openModal('Upload', ulSamples, ulFinalVal));
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  });
+}
+
+setupDetailsModal();
+
 const startBtn = document.querySelector('#startStopBtn') as HTMLDivElement;
 let worker: Worker | null = null;
 let isRunning = false;
@@ -331,6 +444,22 @@ function initUI(): void {
     const el = document.querySelector(`#${id}`);
     if (el) el.textContent = '';
   });
+  const charts = ['dlChart', 'ulChart'];
+  charts.forEach((id) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.innerHTML = '';
+  });
+  const subIds = ['dlSubText', 'ulSubText'];
+  subIds.forEach((id) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.textContent = '';
+  });
+  document.querySelector('#dl-info-btn')?.classList.add('hidden');
+  document.querySelector('#ul-info-btn')?.classList.add('hidden');
+  dlSamples = [];
+  ulSamples = [];
+  dlFinalVal = '';
+  ulFinalVal = '';
 }
 
 function stopTest(): void {
@@ -342,23 +471,94 @@ function stopTest(): void {
   initUI();
 }
 
+function handlePing(value: string, jitter: string): void {
+  const el = document.querySelector('#pingText');
+  if (el) el.textContent = value;
+  const jel = document.querySelector('#jitText');
+  if (jel) jel.textContent = jitter;
+}
+
+function handleDlProgress(
+  value: string,
+  bytes: number,
+  timeMs: number,
+  samples?: SampleObj[],
+  chartSamples?: SampleObj[],
+): void {
+  updateMetric('#dlText', '#dlSubText', value, bytes, timeMs);
+  const chartEl = document.querySelector('#dlChart');
+  const drawSamples = chartSamples ?? samples;
+  if (chartEl && drawSamples)
+    chartEl.innerHTML = drawAreaChart(
+      drawSamples.map((s) => s.speed),
+      '--dl-color',
+    );
+}
+
+function handleDlDone(
+  value: string,
+  bytes: number,
+  timeMs: number,
+  samples?: SampleObj[],
+  chartSamples?: SampleObj[],
+): void {
+  handleDlProgress(value, bytes, timeMs, samples, chartSamples);
+  if (samples) {
+    dlSamples = samples;
+    dlFinalVal = value;
+    document.querySelector('#dl-info-btn')?.classList.remove('hidden');
+  }
+}
+
+function handleUlProgress(
+  value: string,
+  bytes: number,
+  timeMs: number,
+  samples?: SampleObj[],
+  chartSamples?: SampleObj[],
+): void {
+  updateMetric('#ulText', '#ulSubText', value, bytes, timeMs);
+  const chartEl = document.querySelector('#ulChart');
+  const drawSamples = chartSamples ?? samples;
+  if (chartEl && drawSamples)
+    chartEl.innerHTML = drawAreaChart(
+      drawSamples.map((s) => s.speed),
+      '--ul-color',
+    );
+}
+
+function handleUlDone(
+  value: string,
+  bytes: number,
+  timeMs: number,
+  samples?: SampleObj[],
+  chartSamples?: SampleObj[],
+): void {
+  handleUlProgress(value, bytes, timeMs, samples, chartSamples);
+  if (samples) {
+    ulSamples = samples;
+    ulFinalVal = value;
+    document.querySelector('#ul-info-btn')?.classList.remove('hidden');
+  }
+}
+
 function handleWorkerMessage(e: MessageEvent): void {
-  const { type, value, jitter } = e.data;
+  const { type, value, jitter, samples, chartSamples, bytes, timeMs } = e.data;
   switch (type) {
-    case 'ping': {
-      const el = document.querySelector('#pingText');
-      if (el) el.textContent = value;
-      const jel = document.querySelector('#jitText');
-      if (jel) jel.textContent = jitter;
+    case 'ping':
+      handlePing(value, jitter);
       break;
-    }
     case 'dl_progress':
+      handleDlProgress(value, bytes, timeMs, samples, chartSamples);
+      break;
     case 'dl_done':
-      updateMetric('#dlText', '#dlSubText', value, e.data.bytes, e.data.timeMs);
+      handleDlDone(value, bytes, timeMs, samples, chartSamples);
       break;
     case 'ul_progress':
+      handleUlProgress(value, bytes, timeMs, samples, chartSamples);
+      break;
     case 'ul_done':
-      updateMetric('#ulText', '#ulSubText', value, e.data.bytes, e.data.timeMs);
+      handleUlDone(value, bytes, timeMs, samples, chartSamples);
       break;
     case 'status': {
       if (value === 'done') {

@@ -79,15 +79,15 @@
           <div class="setting-group">
             <label for="size-slider">
               <span data-i18n="settings_size">Test Volume</span>
-              <span class="range-value"><span id="size-val">100</span> MB</span>
+              <span class="range-value"><span id="size-val">200</span> MB</span>
             </label>
             <input
               type="range"
               id="size-slider"
-              min="10"
+              min="100"
               max="1000"
-              step="10"
-              value="100"
+              step="100"
+              value="200"
             >
           </div>
           <div class="setting-group">
@@ -264,6 +264,12 @@
         </div>
 
         <div class="testArea">
+          <svg
+            id="dlChart"
+            class="chart-bg"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          ></svg>
           <div class="testName">
             <span
               class="icon"
@@ -284,13 +290,35 @@
             id="dlText"
             class="meterText"
           ></div>
-          <div
-            id="dlSubText"
-            class="meterSubText"
-          ></div>
+          <div class="subTextWrapper">
+            <div
+              id="dlSubText"
+              class="meterSubText"
+            ></div>
+            <button
+              id="dl-info-btn"
+              class="info-btn hidden"
+              type="button"
+              data-i18n-aria="test_details"
+              aria-label="Test Details"
+              data-i18n-title="test_details"
+              title="Test Details"
+            >
+              <span
+                class="icon"
+                id="dl-info-icon"
+              ></span>
+            </button>
+          </div>
         </div>
 
         <div class="testArea">
+          <svg
+            id="ulChart"
+            class="chart-bg"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          ></svg>
           <div class="testName">
             <span
               class="icon"
@@ -311,10 +339,26 @@
             id="ulText"
             class="meterText"
           ></div>
-          <div
-            id="ulSubText"
-            class="meterSubText"
-          ></div>
+          <div class="subTextWrapper">
+            <div
+              id="ulSubText"
+              class="meterSubText"
+            ></div>
+            <button
+              id="ul-info-btn"
+              class="info-btn hidden"
+              type="button"
+              data-i18n-aria="test_details"
+              aria-label="Test Details"
+              data-i18n-title="test_details"
+              title="Test Details"
+            >
+              <span
+                class="icon"
+                id="ul-info-icon"
+              ></span>
+            </button>
+          </div>
         </div>
 
         <div
@@ -329,6 +373,30 @@
         </div>
 
         <div id="startStopBtn"></div>
+      </div>
+    </div>
+    <div
+      id="details-modal"
+      class="modal-overlay hidden"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="details-title">Details</h2>
+          <button
+            type="button"
+            class="close-btn"
+            id="details-close"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body details-body">
+          <div class="details-table-wrapper">
+            <table class="details-table">
+              <tbody id="details-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
     <script

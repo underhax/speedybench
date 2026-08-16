@@ -64,6 +64,20 @@ export function applyTranslations(): void {
     }
   });
 
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-aria');
+    if (key) {
+      el.setAttribute('aria-label', localize(key));
+    }
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-title');
+    if (key) {
+      el.setAttribute('title', localize(key));
+    }
+  });
+
   const startBtn = document.querySelector('#startStopBtn');
   if (startBtn && !startBtn.classList.contains('running')) {
     startBtn.textContent = localize('start');
