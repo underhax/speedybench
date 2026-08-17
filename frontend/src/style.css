@@ -19,6 +19,12 @@
   --modal-action-border: #5c5c6b;
   --radio-btn-bg: transparent;
   --radio-btn-border: #d4d0ca;
+  --text-tooltip: #26273b;
+  --bg-tooltip: #9193a8;
+  --border-tooltip: #26273b;
+  --bg-highlight-dot: #26273b;
+  --border-highlight-dl-dot: #25dbd5;
+  --border-highlight-ul-dot: #c18aef;
 }
 
 html.theme-light {
@@ -40,6 +46,12 @@ html.theme-light {
   --modal-action-border: #eaeaea;
   --radio-btn-bg: transparent;
   --radio-btn-border: #747474;
+  --text-tooltip: #1a1a1a;
+  --bg-tooltip: #f3f3f3;
+  --border-tooltip: #dedede;
+  --bg-highlight-dot: #fff;
+  --border-highlight-dl-dot: #10b4af;
+  --border-highlight-ul-dot: #a130ff;
 }
 
 html,
@@ -157,8 +169,85 @@ body {
   z-index: 1;
   width: 100%;
   height: 65%;
-  pointer-events: none;
   opacity: 0.6;
+}
+
+circle.chart-dot.visible,
+circle.chart-dot.visible[data-color='--dl-color'],
+circle.chart-dot.visible[data-color='--ul-color'] {
+  display: none;
+}
+
+.chart-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  margin-left: -2.5px;
+  pointer-events: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
+}
+
+.chart-highlight.visible {
+  background-color: var(--bg-highlight-dot);
+  opacity: 0.9;
+}
+
+.chart-highlight[data-color='--dl-color'] {
+  border-color: var(--border-highlight-dl-dot);
+}
+
+.chart-highlight[data-color='--ul-color'] {
+  border-color: var(--border-highlight-ul-dot);
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.3em 0.4em;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-tooltip);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--bg-tooltip);
+  border: 1px solid var(--border-tooltip);
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.chart-tooltip::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  content: '';
+  border: 8px solid transparent;
+  border-top-color: var(--bg-tooltip);
+  transform: translateX(-50%);
+}
+
+@media (hover: none) {
+  .chart-tooltip {
+    display: none;
+  }
+}
+
+.chart-tooltip.visible {
+  opacity: 1;
 }
 
 .info-btn {
@@ -172,6 +261,7 @@ body {
   padding: 0;
   margin-left: 10px;
   color: var(--text-color);
+  pointer-events: auto;
   cursor: pointer;
   background: transparent;
   border: none;
@@ -359,6 +449,7 @@ div.testName {
   z-index: 9;
   width: 100%;
   font-size: 1.2em;
+  pointer-events: none;
 }
 
 div.meterText {
@@ -369,6 +460,7 @@ div.meterText {
   width: 100%;
   font-size: 4.5em;
   font-weight: lighter;
+  pointer-events: none;
 }
 
 .subTextWrapper {
@@ -381,6 +473,7 @@ div.meterText {
   align-items: center;
   width: 100%;
   height: 20px;
+  pointer-events: none;
 }
 
 div.meterSubText {

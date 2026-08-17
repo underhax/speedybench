@@ -6,8 +6,6 @@ SpeedyBench is a lightweight, self-hosted network speed test application. It pro
 
 The backend is built with Go for maximum performance and minimal resource footprint, while the frontend is a modern, responsive single-page application built with TypeScript and Vite.
 
----
-
 [![CI](https://github.com/underhax/speedybench/actions/workflows/ci.yml/badge.svg)](https://github.com/underhax/speedybench/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/underhax/speedybench?label=Release&include_prereleases)](https://github.com/underhax/speedybench/releases)
 [![GitHub last commit](https://img.shields.io/github/last-commit/underhax/speedybench)](https://github.com/underhax/speedybench/commits/main)

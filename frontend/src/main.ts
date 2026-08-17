@@ -1,5 +1,6 @@
 import './style.css';
 import { drawAreaChart } from './chart.ts';
+import { debugLog, getDebugEnabled, loadDebugConfig } from './debug.ts';
 import {
   applyTranslations,
   availableLanguages,
@@ -9,6 +10,7 @@ import {
   setLanguage,
 } from './localize.ts';
 import { initTheme, toggleTheme } from './theme.ts';
+import { setupChartTooltip } from './tooltip.ts';
 
 const svgs = import.meta.glob('./icons/*.svg', {
   eager: true,
@@ -325,9 +327,13 @@ applyTranslations();
 setupLangSelector();
 setupSettingsModal();
 
+const debugConfigPromise = loadDebugConfig();
+
 type SampleObj = { speed: number; bytes: number; timeMs: number };
 let dlSamples: SampleObj[] = [];
 let ulSamples: SampleObj[] = [];
+let dlChartSamples: SampleObj[] = [];
+let ulChartSamples: SampleObj[] = [];
 let dlFinalVal = '';
 let ulFinalVal = '';
 
@@ -434,6 +440,18 @@ function setupDetailsModal(): void {
 
 setupDetailsModal();
 
+const dlChartEl = document.querySelector('#dlChart') as SVGSVGElement;
+const dlTestArea = dlChartEl?.closest('.testArea') as HTMLElement | null;
+if (dlTestArea && dlChartEl) {
+  setupChartTooltip(dlTestArea, dlChartEl, () => dlChartSamples, '--dl-color');
+}
+
+const ulChartEl = document.querySelector('#ulChart') as SVGSVGElement;
+const ulTestArea = ulChartEl?.closest('.testArea') as HTMLElement | null;
+if (ulTestArea && ulChartEl) {
+  setupChartTooltip(ulTestArea, ulChartEl, () => ulChartSamples, '--ul-color');
+}
+
 const startBtn = document.querySelector('#startStopBtn') as HTMLDivElement;
 let worker: Worker | null = null;
 let isRunning = false;
@@ -458,6 +476,8 @@ function initUI(): void {
   document.querySelector('#ul-info-btn')?.classList.add('hidden');
   dlSamples = [];
   ulSamples = [];
+  dlChartSamples = [];
+  ulChartSamples = [];
   dlFinalVal = '';
   ulFinalVal = '';
 }
@@ -488,11 +508,13 @@ function handleDlProgress(
   updateMetric('#dlText', '#dlSubText', value, bytes, timeMs);
   const chartEl = document.querySelector('#dlChart');
   const drawSamples = chartSamples ?? samples;
-  if (chartEl && drawSamples)
+  if (chartEl && drawSamples) {
+    debugLog('drawing download chart', { chartSamples, samples });
     chartEl.innerHTML = drawAreaChart(
       drawSamples.map((s) => s.speed),
       '--dl-color',
     );
+  }
 }
 
 function handleDlDone(
@@ -503,6 +525,7 @@ function handleDlDone(
   chartSamples?: SampleObj[],
 ): void {
   handleDlProgress(value, bytes, timeMs, samples, chartSamples);
+  if (chartSamples) dlChartSamples = chartSamples;
   if (samples) {
     dlSamples = samples;
     dlFinalVal = value;
@@ -520,11 +543,13 @@ function handleUlProgress(
   updateMetric('#ulText', '#ulSubText', value, bytes, timeMs);
   const chartEl = document.querySelector('#ulChart');
   const drawSamples = chartSamples ?? samples;
-  if (chartEl && drawSamples)
+  if (chartEl && drawSamples) {
+    debugLog('drawing upload chart', { chartSamples, samples });
     chartEl.innerHTML = drawAreaChart(
       drawSamples.map((s) => s.speed),
       '--ul-color',
     );
+  }
 }
 
 function handleUlDone(
@@ -535,6 +560,7 @@ function handleUlDone(
   chartSamples?: SampleObj[],
 ): void {
   handleUlProgress(value, bytes, timeMs, samples, chartSamples);
+  if (chartSamples) ulChartSamples = chartSamples;
   if (samples) {
     ulSamples = samples;
     ulFinalVal = value;
@@ -544,6 +570,7 @@ function handleUlDone(
 
 function handleWorkerMessage(e: MessageEvent): void {
   const { type, value, jitter, samples, chartSamples, bytes, timeMs } = e.data;
+  debugLog('received worker message', { chartSamples, samples, type });
   switch (type) {
     case 'ping':
       handlePing(value, jitter);
@@ -573,7 +600,7 @@ function handleWorkerMessage(e: MessageEvent): void {
   }
 }
 
-startBtn?.addEventListener('click', (): void => {
+startBtn?.addEventListener('click', async (): Promise<void> => {
   if (isRunning) {
     stopTest();
     return;
@@ -584,11 +611,15 @@ startBtn?.addEventListener('click', (): void => {
   applyTranslations();
   initUI();
 
+  await debugConfigPromise;
+  if (!isRunning) return;
+
   worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   worker.onmessage = handleWorkerMessage;
   worker.postMessage({
     base: window.location.href,
     calcMethod: currentSettings.calcMethod,
+    debug: getDebugEnabled(),
     sizeMB: currentSettings.size,
     threads: currentSettings.threads,
     timeoutSec: currentSettings.time,

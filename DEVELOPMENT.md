@@ -115,7 +115,13 @@ The Go backend utilizes the `embed` package to serve compiled frontend assets di
    ```
    By default, this command initializes the server on `127.0.0.1:8989`. For detailed execution examples and environment variable configuration (such as custom hosts and ports), please refer to the [Configuration section in README](README.md#configuration).
 
-5. **Build the Docker image locally:**
+5. **Enable browser debug logging:**
+   ```sh
+   SPEEDYBENCH_DEBUG=true ./speedybench
+   ```
+   When enabled, the server exposes its debug state through `GET /api/config`, which the frontend reads on load. Activating this flag turns on `console.debug` logging in the browser console, where you can inspect runtime values such as worker progress messages, sample data, and tooltip interactions.
+
+6. **Build the Docker image locally:**
    The project includes a multi-stage Dockerfile that compiles both the frontend and backend. You can build the Docker image natively for your local architecture:
    ```sh
    docker build -t speedybench:dev --build-arg VERSION=dev -f docker/Dockerfile .
@@ -124,7 +130,7 @@ The Go backend utilizes the `embed` package to serve compiled frontend assets di
    ```sh
    # For ARM64 architecture:
    docker build --platform linux/arm64 -t speedybench:dev --build-arg VERSION=dev -f docker/Dockerfile .
-   
+
    # For AMD64 architecture:
    docker build --platform linux/amd64 -t speedybench:dev --build-arg VERSION=dev -f docker/Dockerfile .
    ```
@@ -151,16 +157,16 @@ The Go backend utilizes the `embed` package to serve compiled frontend assets di
    ```sh
    # Build natively for your local architecture:
    docker compose -f docker/docker-compose.dev.yaml build
-   
+
    # Start the container:
    docker compose -f docker/docker-compose.dev.yaml up
    ```
-   
+
    To explicitly cross-compile for another architecture using Docker Compose (do not run `up` locally if the target architecture differs from your host system):
    ```sh
    # For ARM64 architecture:
    DOCKER_DEFAULT_PLATFORM=linux/arm64 docker compose -f docker/docker-compose.dev.yaml build
-   
+
    # For AMD64 architecture:
    DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f docker/docker-compose.dev.yaml build
    ```

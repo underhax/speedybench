@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
@@ -53,6 +54,7 @@ func TestRegisterRoutes(t *testing.T) {
 		{"/api/garbage"},
 		{"/api/empty"},
 		{"/api/ip"},
+		{"/api/config"},
 	}
 
 	for _, tt := range tests {
@@ -379,6 +381,40 @@ func TestHandleCPUWriteError(t *testing.T) {
 	ew := &errWriter{}
 	h.handleCPU(ew, req)
 	t.Log("handleCPU returned after write error")
+}
+
+func TestHandleConfig(t *testing.T) {
+	tests := []struct {
+		name  string
+		debug bool
+	}{
+		{name: "enabled", debug: true},
+		{name: "disabled", debug: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewHandlerWithDebug(fstest.MapFS{}, 100, tt.debug)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/config", http.NoBody)
+			rr := httptest.NewRecorder()
+
+			h.handleConfig(rr, req)
+
+			if rr.Code != http.StatusOK {
+				t.Errorf("status: got %d want %d", rr.Code, http.StatusOK)
+			}
+			if contentType := rr.Header().Get("Content-Type"); contentType != "application/json; charset=utf-8" {
+				t.Errorf("content type: got %q", contentType)
+			}
+			var got clientConfig
+			if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+				t.Fatalf("decode config response: %v", err)
+			}
+			if got.Debug != tt.debug {
+				t.Errorf("debug: got %t want %t", got.Debug, tt.debug)
+			}
+		})
+	}
 }
 
 func TestHandleCompressedAsset(t *testing.T) {

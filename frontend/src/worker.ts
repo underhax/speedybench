@@ -1,3 +1,4 @@
+import { debugLog, setDebugEnabled } from './debug.ts';
 import { calculateMbps, calculateMbpsNum } from './utils.ts';
 
 const calculatePeakSustained = (samples: number[]): string => {
@@ -112,12 +113,10 @@ const runDownloadTest = async (
       uiMbps = calculateMbpsNum(currentBytes, currentTime);
     }
 
-    if (totalBytes > 0) {
-      chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
-    }
+    chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
 
     const timeSinceLastSample = now - lastSampleTime;
-    if (totalBytes > 0 && timeSinceLastSample >= 1000) {
+    if (timeSinceLastSample >= 1000) {
       const sampleBytes = totalBytes - lastSampleBytes;
       const sampleMbps = calculateMbpsNum(sampleBytes, timeSinceLastSample);
       samples.push({ bytes: totalBytes, speed: sampleMbps, timeMs: timeSinceStart });
@@ -129,11 +128,17 @@ const runDownloadTest = async (
     lastTime = now;
 
     const displayValue = uiMbps.toFixed(2);
+    const progressChartSamples = [...chartSamples];
+    const progressSamples = [...samples];
 
+    debugLog('sending download progress', {
+      chartSamples: progressChartSamples,
+      samples: progressSamples,
+    });
     self.postMessage({
       bytes: totalBytes,
-      chartSamples: [...chartSamples],
-      samples: [...samples],
+      chartSamples: progressChartSamples,
+      samples: progressSamples,
       timeMs: timeSinceStart,
       type: 'dl_progress',
       value: displayValue,
@@ -170,10 +175,14 @@ const runDownloadTest = async (
       displayValue = calculateMbps(totalBytes, finalNow - start);
     }
 
+    const doneChartSamples = [...chartSamples];
+    const doneSamples = [...samples];
+
+    debugLog('sending download result', { chartSamples: doneChartSamples, samples: doneSamples });
     self.postMessage({
       bytes: totalBytes,
-      chartSamples: [...chartSamples],
-      samples: [...samples],
+      chartSamples: doneChartSamples,
+      samples: doneSamples,
       timeMs: finalNow - start,
       type: 'dl_done',
       value: displayValue,
@@ -271,12 +280,10 @@ const runUploadTest = async (
       uiMbps = calculateMbpsNum(currentBytes, currentTime);
     }
 
-    if (totalBytes > 0) {
-      chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
-    }
+    chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
 
     const timeSinceLastSample = now - lastSampleTime;
-    if (totalBytes > 0 && timeSinceLastSample >= 1000) {
+    if (timeSinceLastSample >= 1000) {
       const sampleBytes = totalBytes - lastSampleBytes;
       const sampleMbps = calculateMbpsNum(sampleBytes, timeSinceLastSample);
       samples.push({ bytes: totalBytes, speed: sampleMbps, timeMs: timeSinceStart });
@@ -288,11 +295,17 @@ const runUploadTest = async (
     lastTime = now;
 
     const displayValue = uiMbps.toFixed(2);
+    const progressChartSamples = [...chartSamples];
+    const progressSamples = [...samples];
 
+    debugLog('sending upload progress', {
+      chartSamples: progressChartSamples,
+      samples: progressSamples,
+    });
     self.postMessage({
       bytes: totalBytes,
-      chartSamples: [...chartSamples],
-      samples: [...samples],
+      chartSamples: progressChartSamples,
+      samples: progressSamples,
       timeMs: timeSinceStart,
       type: 'ul_progress',
       value: displayValue,
@@ -328,10 +341,14 @@ const runUploadTest = async (
     displayValue = calculateMbps(totalBytes, finalNow - start);
   }
 
+  const doneChartSamples = [...chartSamples];
+  const doneSamples = [...samples];
+
+  debugLog('sending upload result', { chartSamples: doneChartSamples, samples: doneSamples });
   self.postMessage({
     bytes: totalBytes,
-    chartSamples: [...chartSamples],
-    samples: [...samples],
+    chartSamples: doneChartSamples,
+    samples: doneSamples,
     timeMs: finalNow - start,
     type: 'ul_done',
     value: displayValue,
@@ -340,7 +357,15 @@ const runUploadTest = async (
 
 self.onmessage = async (e: MessageEvent): Promise<void> => {
   if (e.data?.type === 'start') {
-    const { base, sizeMB = 100, timeoutSec = 15, threads = 4, calcMethod = 'cumulative' } = e.data;
+    const {
+      base,
+      calcMethod = 'cumulative',
+      debug = false,
+      sizeMB = 100,
+      threads = 4,
+      timeoutSec = 15,
+    } = e.data;
+    setDebugEnabled(debug === true);
     self.postMessage({ type: 'status', value: 'pinging' });
     await runPingTest(base);
 

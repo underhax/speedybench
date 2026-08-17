@@ -57,6 +57,8 @@ describe('Main', () => {
     mockWorkerInstance.onmessage = null;
 
     fetchMock = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({ debug: false }),
+      ok: true,
       text: vi.fn().mockResolvedValue('127.0.0.1'),
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -116,10 +118,13 @@ describe('Main', () => {
     const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
 
     startBtn?.click();
-    expect(startBtn?.classList.contains('running')).toBe(true);
+    await vi.waitFor(() => {
+      expect(startBtn?.classList.contains('running')).toBe(true);
+    });
     expect(mockWorkerInstance.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         base: window.location.href,
+        debug: false,
         type: 'start',
       }),
     );
@@ -198,8 +203,9 @@ describe('Main', () => {
 
     const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
     startBtn?.click();
-
-    expect(fetchMock).toHaveBeenCalledWith(new URL('./api/ip', window.location.href));
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(new URL('./api/ip', window.location.href));
+    });
 
     await new Promise((r) => setTimeout(r, 10));
   });

@@ -314,15 +314,24 @@ func TestRunEdgeCases(t *testing.T) {
 	}
 }
 
+func assertBool(t *testing.T, name string, got, want bool) {
+	t.Helper()
+	if got != want {
+		t.Errorf("expected %s to be %v, got %v", name, want, got)
+	}
+}
+
 func TestParseConfig(t *testing.T) {
 	tests := []struct {
 		name         string
 		hostEnv      string
 		dockerEnv    string
+		debugEnv     string
 		maxConnsEnv  string
 		wantHost     string
 		wantMaxConns int
 		wantDocker   bool
+		wantDebug    bool
 		wantError    bool
 	}{
 		{
@@ -361,6 +370,21 @@ func TestParseConfig(t *testing.T) {
 			dockerEnv:    "not_a_bool",
 			wantMaxConns: 100,
 			wantError:    true,
+		},
+		{
+			name:      "debug_enabled",
+			debugEnv:  "true",
+			wantDebug: true,
+		},
+		{
+			name:      "debug_disabled",
+			debugEnv:  "false",
+			wantDebug: false,
+		},
+		{
+			name:      "invalid_debug_env",
+			debugEnv:  "invalid",
+			wantError: true,
 		},
 		{
 			name:         "valid_max_conns_edge",
@@ -403,6 +427,9 @@ func TestParseConfig(t *testing.T) {
 				if s == "SPEEDYBENCH_IN_DOCKER" {
 					return tt.dockerEnv
 				}
+				if s == "SPEEDYBENCH_DEBUG" {
+					return tt.debugEnv
+				}
 				if s == "SPEEDYBENCH_MAX_CONNS" {
 					return tt.maxConnsEnv
 				}
@@ -427,12 +454,9 @@ func TestParseConfig(t *testing.T) {
 			if cfg.port != "8989" {
 				t.Errorf("expected port to be 8989, got %q", cfg.port)
 			}
-			if cfg.healthcheck != false {
-				t.Errorf("expected healthcheck to be false, got %v", cfg.healthcheck)
-			}
-			if cfg.inDocker != tt.wantDocker {
-				t.Errorf("expected inDocker to be %v, got %v", tt.wantDocker, cfg.inDocker)
-			}
+			assertBool(t, "healthcheck", cfg.healthcheck, false)
+			assertBool(t, "inDocker", cfg.inDocker, tt.wantDocker)
+			assertBool(t, "debug", cfg.debug, tt.wantDebug)
 			expectedMaxConns := tt.wantMaxConns
 			if expectedMaxConns == 0 {
 				expectedMaxConns = 100

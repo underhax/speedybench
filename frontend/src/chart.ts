@@ -13,20 +13,7 @@ export function drawAreaChart(rawData: number[], colorVar: string): string {
     return { x, y };
   });
 
-  const firstPoint = points[0];
-  if (!firstPoint) return '';
-
-  let path = `M ${firstPoint.x},${firstPoint.y}`;
-
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    if (!prev || !curr) continue;
-
-    const cpX = (prev.x + curr.x) / 2;
-    path += ` C ${cpX},${prev.y} ${cpX},${curr.y} ${curr.x},${curr.y}`;
-  }
-
+  const path = `M ${points.map((p) => `${p.x},${p.y}`).join(' L ')}`;
   const areaPath = `${path} L ${width},${height} L 0,${height} Z`;
 
   const gradientId = `grad-${colorVar.replace(/[^a-zA-Z0-9]/gu, '')}`;
@@ -40,5 +27,6 @@ export function drawAreaChart(rawData: number[], colorVar: string): string {
     </defs>
     <path d="${areaPath}" fill="url(#${gradientId})" stroke="none" />
     <path d="${path}" fill="none" stroke="var(${colorVar})" stroke-width="1.5" stroke-opacity="0.5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="${path}" fill="none" stroke="transparent" stroke-width="24" pointer-events="stroke" class="chart-hit-area" />
   `;
 }

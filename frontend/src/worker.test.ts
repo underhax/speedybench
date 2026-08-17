@@ -29,6 +29,24 @@ describe('SpeedyBenchWorker', () => {
     }) as unknown as typeof setInterval;
     postMessageMock = vi.fn();
     vi.stubGlobal('postMessage', postMessageMock);
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.onabort) this.onabort();
+      });
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: Number.MAX_SAFE_INTEGER } as ProgressEvent);
+        }
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
     vi.resetModules();
     performanceNowValue = 0;
     vi.spyOn(performance, 'now').mockImplementation(() => performanceNowValue);
@@ -108,8 +126,11 @@ describe('SpeedyBenchWorker', () => {
       });
     };
 
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
     const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
-    await onmessage?.({ data: { base: 'http://127.0.0.1/', type: 'start' } } as MessageEvent);
+    await onmessage?.({
+      data: { base: 'http://127.0.0.1/', debug: true, type: 'start' },
+    } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'status', value: 'pinging' });
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ping' }));
@@ -118,6 +139,11 @@ describe('SpeedyBenchWorker', () => {
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'status', value: 'uploading' });
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'status', value: 'done' });
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[speedybench]',
+      'sending download result',
+      expect.objectContaining({ chartSamples: expect.any(Array), samples: expect.any(Array) }),
+    );
   });
 
   it('handles fetch errors during ping gracefully', async (): Promise<void> => {
@@ -165,6 +191,81 @@ describe('SpeedyBenchWorker', () => {
     } as MessageEvent);
 
     expect(postMessageMock).toHaveBeenCalledWith({ type: 'dl_error', value: 'Error' });
+  });
+
+  it('updates chartSamples every 250 ms independently of samples', async (): Promise<void> => {
+    let bytesRead = 0;
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.endsWith('/api/empty')) {
+        performanceNowValue += 250;
+        return { ok: true };
+      }
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: vi.fn().mockResolvedValue(undefined),
+              read: async () => {
+                if (bytesRead > 8 * 1024 * 1024) {
+                  return { done: true, value: undefined };
+                }
+                bytesRead += 1024 * 256;
+                performanceNowValue += 250;
+                return new Promise((resolve) => {
+                  setTimeout(() => resolve({ done: false, value: new Uint8Array(1024 * 256) }), 5);
+                });
+              },
+            }),
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.onabort) this.onabort();
+      });
+      send = vi.fn().mockImplementation(function (this: MockXHR) {
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: 1024 * 256 } as ProgressEvent);
+        }
+        performanceNowValue += 250;
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: { base: 'http://127.0.0.1/', sizeMB: 10, threads: 1, timeoutSec: 10, type: 'start' },
+    } as MessageEvent);
+
+    let lastChartLen = 0;
+    let lastSamplesLen = 0;
+    let chartGrowCount = 0;
+    let samplesGrowCount = 0;
+
+    for (const call of postMessageMock.mock.calls) {
+      const data = call[0] as { type?: string; chartSamples?: unknown[]; samples?: unknown[] };
+      if (data.type !== 'dl_progress' && data.type !== 'ul_progress') continue;
+      const chartLen = data.chartSamples?.length ?? 0;
+      const samplesLen = data.samples?.length ?? 0;
+      if (chartLen > lastChartLen) chartGrowCount++;
+      if (samplesLen > lastSamplesLen) samplesGrowCount++;
+      lastChartLen = chartLen;
+      lastSamplesLen = samplesLen;
+    }
+
+    expect(chartGrowCount).toBeGreaterThan(samplesGrowCount);
+    expect(samplesGrowCount).toBeGreaterThan(0);
   });
 
   it('handles fetch errors during upload gracefully', async (): Promise<void> => {

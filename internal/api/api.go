@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -38,6 +39,7 @@ type Handler struct {
 	globalConns    chan struct{}
 	ipConns        map[string]int
 	cspHeader      string
+	debugEnabled   bool
 	maxGlobalConns int
 	maxPerIP       int
 	ipMutex        sync.Mutex
@@ -45,6 +47,15 @@ type Handler struct {
 
 // NewHandler initializes a pre-allocated sync.Pool to prevent garbage collection spikes during high-concurrency download tests.
 func NewHandler(assetFS fs.FS, maxGlobalConns int) *Handler {
+	return newHandler(assetFS, maxGlobalConns, false)
+}
+
+// NewHandlerWithDebug exposes the server's runtime debug state to the browser without disclosing other process configuration.
+func NewHandlerWithDebug(assetFS fs.FS, maxGlobalConns int, debugEnabled bool) *Handler {
+	return newHandler(assetFS, maxGlobalConns, debugEnabled)
+}
+
+func newHandler(assetFS fs.FS, maxGlobalConns int, debugEnabled bool) *Handler {
 	csp := "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
 
 	if indexBytes, err := fs.ReadFile(assetFS, "index.html"); err == nil {
@@ -70,6 +81,7 @@ func NewHandler(assetFS fs.FS, maxGlobalConns int) *Handler {
 		},
 		assetFS:        assetFS,
 		cspHeader:      csp,
+		debugEnabled:   debugEnabled,
 		maxGlobalConns: maxGlobalConns,
 		globalConns:    make(chan struct{}, maxGlobalConns),
 		ipConns:        make(map[string]int),
@@ -103,6 +115,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/empty", h.limitMiddleware(h.handleEmpty))
 	mux.HandleFunc("/api/ip", h.handleIP)
 	mux.HandleFunc("/api/cpu", h.handleCPU)
+	mux.HandleFunc("/api/config", h.handleConfig)
 	mux.HandleFunc("/assets/", h.handleCompressedAsset)
 }
 
@@ -269,6 +282,20 @@ func (h *Handler) handleCPU(w http.ResponseWriter, _ *http.Request) {
 
 	if _, err := fmt.Fprintf(w, "%d", runtime.NumCPU()); err != nil {
 		log.Printf("Failed to write CPU response: %v", err)
+	}
+}
+
+type clientConfig struct {
+	Debug bool `json:"debug"`
+}
+
+func (h *Handler) handleConfig(w http.ResponseWriter, _ *http.Request) {
+	h.setSecurityHeaders(w)
+	h.setNoCacheHeaders(w)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	if err := json.NewEncoder(w).Encode(clientConfig{Debug: h.debugEnabled}); err != nil {
+		log.Printf("Failed to write config response: %v", err)
 	}
 }
 

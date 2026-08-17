@@ -64,15 +64,29 @@ type appConfig struct {
 	port        string
 	healthcheck bool
 	inDocker    bool
+	debug       bool
 	maxConns    int
+}
+
+func parseOptionalBool(getenv func(string) string, name string) (bool, error) {
+	value := getenv(name)
+	if value == "" {
+		return false, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("parse %s: %w", name, err)
+	}
+	return parsed, nil
 }
 
 func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err error) {
 	flags := flag.NewFlagSet("speedybench", flag.ContinueOnError)
 	hc := flags.Bool("healthcheck", false, "Run healthcheck against the local server")
 
-	if err := flags.Parse(args); err != nil {
-		return cfg, fmt.Errorf("parse flags: %w", err)
+	if parseErr := flags.Parse(args); parseErr != nil {
+		return cfg, fmt.Errorf("parse flags: %w", parseErr)
 	}
 	cfg.healthcheck = *hc
 
@@ -80,7 +94,8 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 	if cfg.port == "" {
 		cfg.port = "8989"
 	}
-	if p, err := strconv.Atoi(cfg.port); err != nil || p <= 1024 || p > 65535 {
+	portNum, portErr := strconv.Atoi(cfg.port)
+	if portErr != nil || portNum <= 1024 || portNum > 65535 {
 		return cfg, errors.New("invalid SPEEDYBENCH_PORT - must be a number between 1025 and 65535")
 	}
 
@@ -96,14 +111,17 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 		}
 	}
 
-	inDockerStr := getenv("SPEEDYBENCH_IN_DOCKER")
-	if inDockerStr != "" {
-		inDocker, err := strconv.ParseBool(inDockerStr)
-		if err != nil {
-			return cfg, fmt.Errorf("invalid SPEEDYBENCH_IN_DOCKER - must be a boolean: %w", err)
-		}
-		cfg.inDocker = inDocker
+	inDocker, err := parseOptionalBool(getenv, "SPEEDYBENCH_IN_DOCKER")
+	if err != nil {
+		return cfg, fmt.Errorf("invalid SPEEDYBENCH_IN_DOCKER - must be a boolean: %w", err)
 	}
+	cfg.inDocker = inDocker
+
+	debug, err := parseOptionalBool(getenv, "SPEEDYBENCH_DEBUG")
+	if err != nil {
+		return cfg, fmt.Errorf("invalid SPEEDYBENCH_DEBUG - must be a boolean: %w", err)
+	}
+	cfg.debug = debug
 
 	cfg.maxConns = 100
 	maxConnsStr := getenv("SPEEDYBENCH_MAX_CONNS")
@@ -140,7 +158,7 @@ func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
 		return fmt.Errorf("failed to initialize embedded frontend assets: %w", err)
 	}
 
-	apiHandler := api.NewHandler(fSys, cfg.maxConns)
+	apiHandler := api.NewHandlerWithDebug(fSys, cfg.maxConns, cfg.debug)
 	apiHandler.RegisterRoutes(mux)
 
 	secureMux := securePathMiddleware(mux)

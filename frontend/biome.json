@@ -164,6 +164,14 @@
   },
   "overrides": [
     {
+      "includes": ["src/debug.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "off" }
+        }
+      }
+    },
+    {
       "includes": [
         "**/*.config.ts",
         "**/*.config.js",

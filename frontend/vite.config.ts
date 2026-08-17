@@ -16,6 +16,7 @@ export default defineConfig({
     },
     target: 'es2022',
   },
+
   plugins: [
     compression({ algorithms: ['gzip', 'brotliCompress'], exclude: [/\.(?<ext>br|gz)$/u] }),
     {
