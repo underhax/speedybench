@@ -18,6 +18,7 @@ The backend is built with Go for maximum performance and minimal resource footpr
 ## Features
 
 - **Accurate Metrics**: Measures ping, jitter, download, and upload bandwidth.
+- **Interactive Visualizations**: Includes real-time SVG charts and detailed statistical tables (accessible via the info icon) for in-depth analysis of download and upload phases.
 - **Lightweight**: Distributed as a single, self-contained binary with embedded frontend assets.
 - **Self-Hosted**: Perfect for home labs, private networks, or public servers to test routing and connectivity.
 - **Cross-Platform**: Runs seamlessly on Linux, macOS, and Windows.
@@ -50,6 +51,9 @@ SpeedyBench can be configured using the following environment variables:
 
 ##### Examples
 
+<details>
+<summary><b>View execution examples</b></summary>
+
 **1. Localhost and standard port:**
 ```bash
 # By default, the server binds to 127.0.0.1:8989
@@ -68,6 +72,8 @@ SPEEDYBENCH_HOST=192.168.1.100 SPEEDYBENCH_PORT=9090 ./speedybench
 ```bash
 SPEEDYBENCH_HOST=all ./speedybench
 ```
+
+</details>
 
 ### Option 2: Docker / Docker Compose
 
@@ -92,6 +98,9 @@ docker compose -f "${BASE_DIR}/docker-compose.yaml" down
 
 Alternatively, you can run the image directly with `docker run`:
 
+<details>
+<summary><b>View manual docker run command</b></summary>
+
 ```bash
 docker run -d \
   --name speedybench \
@@ -107,7 +116,7 @@ docker run -d \
   --cap-drop ALL \
   --read-only \
   --tmpfs /tmp:mode=1777,noexec,nosuid \
-  --health-cmd "/app/speedybench -healthcheck" \
+  --health-cmd "CMD /app/speedybench -healthcheck" \
   --health-interval 30s \
   --health-timeout 5s \
   --health-retries 3 \
@@ -115,7 +124,12 @@ docker run -d \
   ghcr.io/underhax/speedybench:latest
 ```
 
+</details>
+
 ## Client-Side Settings
+
+<details>
+<summary><b>View available Client-Side Settings</b></summary>
 
 SpeedyBench offers several customizable parameters directly from the web interface to tailor the benchmark to your specific network environment:
 
@@ -127,9 +141,16 @@ SpeedyBench offers several customizable parameters directly from the web interfa
   > **Note**: The exact number of concurrent threads in Multi-stream mode is automatically determined by the number of available CPU cores on the backend server (capped at `4` threads for servers with 4 cores or fewer, and `6` threads for servers with more than 4 cores).
 - **Save in browser**: If enabled, your configuration preferences are persisted across browser sessions using `localStorage`. If disabled, they are stored temporarily in `sessionStorage` and reset when the tab is closed.
 
+</details>
+
 ## Reverse Proxy (Nginx)
 
-If you are running SpeedyBench behind an Nginx reverse proxy, you can use the following configuration block:
+<details>
+<summary><b>View Nginx Configuration Examples</b></summary>
+
+If you are running SpeedyBench behind an Nginx reverse proxy, you can configure it based on your routing needs:
+
+### Hosting on the Root Path
 
 ```nginx
 server {
@@ -203,6 +224,54 @@ If you want to host SpeedyBench under a specific path (e.g., `https://example.co
         return 301 /speedybench/;
     }
 ```
+
+### Rate Limiting and Connection Limits
+
+SpeedyBench already implements global connection limits at the application level via the `SPEEDYBENCH_MAX_CONNS` variable. However, if you wish to apply strict per-IP rate limiting at the reverse proxy level, you can configure Nginx to do so.
+
+These rate limiting directives can be applied to either of the routing options described above (Root Path or Sub-directory Path).
+
+Since a network speed test inherently generates rapid requests (especially during the latency phase) and opens multiple concurrent streams, any Nginx rate limits must be carefully tuned to avoid blocking legitimate tests.
+
+**Tuning Guide:** The values provided below are strictly **examples**.
+> [!NOTE]
+> To prevent accidental outages, the example configuration includes `limit_req_dry_run on;` by default. This safe mode logs rate-limiting entries in your Nginx `error.log` but does not actually block the requests. You should monitor your logs during tests and adjust the `rate`, `burst`, and `limit_conn` values depending on your expected load and whether your users share IP addresses (e.g., corporate NATs).
+>
+> Once you have tuned the limits to your satisfaction, **remove or comment out** `limit_req_dry_run on;` to enforce the blocks.
+>
+> For a deep dive into Nginx rate limiting, please refer to the [official Nginx documentation](https://docs.nginx.com/nginx/admin-guide/security-controls/controlling-access-proxied-http/).
+
+First, define the limit zones in your Nginx `http` block (typically in `/etc/nginx/nginx.conf`):
+
+```nginx
+http {
+    # ... other settings ...
+    limit_conn_zone $binary_remote_addr zone=speedybench_conn:10m;
+    limit_req_zone $binary_remote_addr zone=speedybench_req:10m rate=50r/s;
+}
+```
+
+Then, apply these limits inside your `location` block:
+
+```nginx
+    location / {
+        # Example limit for concurrent connections per IP
+        limit_conn speedybench_conn 50;
+
+        # Example limit for request rate per IP (using burst to handle simultaneous test requests)
+        limit_req zone=speedybench_req burst=100 nodelay;
+
+        # Safe mode: logs rejected requests without actually blocking them.
+        # Comment out or remove ONLY the line below AFTER you have finished tuning!
+        limit_req_dry_run on;
+
+        # --- Standard proxy configuration from the main example above ---
+        proxy_pass http://127.0.0.1:8989;
+        # ... rest of the proxy configuration ...
+    }
+```
+
+</details>
 
 ## Development
 
