@@ -1,5 +1,13 @@
 # SpeedyBench
 
+<img src="frontend/public/favicon.svg" width="80" alt="SpeedyBench logo">
+
+SpeedyBench is a lightweight, self-hosted network speed test application. It provides an intuitive interface to accurately measure your network's ping, jitter, download, and upload speeds.
+
+The backend is built with Go for maximum performance and minimal resource footprint, while the frontend is a modern, responsive single-page application built with TypeScript and Vite.
+
+---
+
 [![CI](https://github.com/underhax/speedybench/actions/workflows/ci.yml/badge.svg)](https://github.com/underhax/speedybench/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/underhax/speedybench?label=Release&include_prereleases)](https://github.com/underhax/speedybench/releases)
 [![GitHub last commit](https://img.shields.io/github/last-commit/underhax/speedybench)](https://github.com/underhax/speedybench/commits/main)
@@ -7,11 +15,9 @@
 [![GitHub repo size](https://img.shields.io/github/repo-size/underhax/speedybench)](https://github.com/underhax/speedybench)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-SpeedyBench is a lightweight, self-hosted network speed test application. It provides an intuitive interface to accurately measure your network's ping, jitter, download, and upload speeds.
+---
 
-The backend is built with Go for maximum performance and minimal resource footprint, while the frontend is a modern, responsive single-page application built with TypeScript and Vite.
-
-**Demo**
+**Animated Demo**
 
 <a href="https://raw.githubusercontent.com/underhax/speedybench/main/.github/demo/demo.avif" target="_blank"><img src=".github/demo/demo.avif?raw=true" width="400" alt="Animated Demo (Modern Browser Required)"></a>
 
@@ -31,7 +37,7 @@ You can run SpeedyBench using a pre-compiled binary or via Docker.
 ### Option 1: Binary Release
 
 1. Download the latest binary for your operating system and architecture from the [Releases](https://github.com/underhax/speedybench/releases) page.
-2. Extract the archive and make the binary executable (Linux/macOS):
+2. Extract the archive. The binary is already executable, but we recommend restricting permissions for better security (Linux/macOS):
    ```bash
    chmod 500 speedybench
    ```
@@ -39,17 +45,15 @@ You can run SpeedyBench using a pre-compiled binary or via Docker.
    ```bash
    ./speedybench
    ```
-4. Access the web interface at `http://127.0.0.1:8989` (or your server's IP address).
+4. Access the web interface at `http://127.0.0.1:8989`.
 
 #### Configuration
 
 SpeedyBench can be configured using the following environment variables:
 
-- `SPEEDYBENCH_HOST`: If not provided, the server listens on localhost (`127.0.0.1`) by default for security reasons. If set to `all`, it will listen on all available interfaces. Alternatively, you can explicitly specify an IP address to bind to a specific interface.
+- `SPEEDYBENCH_HOST`: If not provided, the server listens on localhost (`127.0.0.1`) by default for security reasons. If set to `all` (equivalent to `0.0.0.0`), it will listen on all available network interfaces. Alternatively, you can explicitly specify an IP address to bind to a specific interface.
 - `SPEEDYBENCH_PORT`: The port for the web server to listen on (default: `8989`). For security reasons, the port must be strictly within the restricted range of `1025` to `65535` to prevent binding to privileged ports. *(Note: When using Docker, you do not need to change this variable; simply map your desired host port to the container's default `8989` port, e.g., `-p 9090:8989`).*
 - `SPEEDYBENCH_MAX_CONNS`: The maximum number of concurrent speed test connections allowed globally (default: `100`). This is a DoS protection feature to prevent server resource exhaustion. If provided, it must be an integer between `6` and `65535`.
-
-##### Examples
 
 <details>
 <summary><b>View execution examples</b></summary>
@@ -63,13 +67,14 @@ SpeedyBench can be configured using the following environment variables:
 SPEEDYBENCH_HOST=127.0.0.1 SPEEDYBENCH_PORT=8989 ./speedybench
 ```
 
-**2. Local IP and non-standard port:**
+**2. Local IP, non-standard port, and concurrent connection limit:**
 ```bash
-SPEEDYBENCH_HOST=192.168.1.100 SPEEDYBENCH_PORT=9090 ./speedybench
+SPEEDYBENCH_MAX_CONNS=200 SPEEDYBENCH_HOST=192.168.1.100 SPEEDYBENCH_PORT=9090 ./speedybench
 ```
 
 **3. Listening on all interfaces and standard port:**
 ```bash
+# Using 'all' is exactly equivalent to using '0.0.0.0'
 SPEEDYBENCH_HOST=all ./speedybench
 ```
 
@@ -234,8 +239,7 @@ These rate limiting directives can be applied to either of the routing options d
 Since a network speed test inherently generates rapid requests (especially during the latency phase) and opens multiple concurrent streams, any Nginx rate limits must be carefully tuned to avoid blocking legitimate tests.
 
 **Tuning Guide:** The values provided below are strictly **examples**.
-> [!NOTE]
-> To prevent accidental outages, the example configuration includes `limit_req_dry_run on;` by default. This safe mode logs rate-limiting entries in your Nginx `error.log` but does not actually block the requests. You should monitor your logs during tests and adjust the `rate`, `burst`, and `limit_conn` values depending on your expected load and whether your users share IP addresses (e.g., corporate NATs).
+> **Note**: To prevent accidental outages, the example configuration includes `limit_req_dry_run on;` by default. This safe mode logs rate-limiting entries in your Nginx `error.log` but does not actually block the requests. You should monitor your logs during tests and adjust the `rate`, `burst`, and `limit_conn` values depending on your expected load and whether your users share IP addresses (e.g., corporate NATs).
 >
 > Once you have tuned the limits to your satisfaction, **remove or comment out** `limit_req_dry_run on;` to enforce the blocks.
 >
