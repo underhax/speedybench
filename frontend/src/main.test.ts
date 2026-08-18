@@ -44,11 +44,16 @@ describe('Main', () => {
       <div id="ulText"></div>
       <div id="ulSubText"></div>
       <div id="pingText"></div>
+      <div id="dlPingText"></div>
+      <div id="ulPingText"></div>
       <div id="jitText"></div>
       <div id="ip"></div>
       <div id="download-icon"></div>
       <div id="upload-icon"></div>
       <div id="ping-icon"></div>
+      <div id="dl-ping-icon"></div>
+      <div id="ul-ping-icon"></div>
+      <div id="jitter-icon"></div>
       <div id="ip-icon"></div>
       <div id="lang-icon"></div>
     `;

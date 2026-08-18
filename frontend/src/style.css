@@ -38,7 +38,7 @@ html.theme-light {
   --btn-text: #1a1a1a;
   --dl-color: #2bc4bf;
   --ul-color: #ab6ae2;
-  --ping-color: #deca25;
+  --ping-color: #cebc29;
   --empty-range: #e0e0e0;
   --icon-fill: currentColor;
   --text-color: #747474;
@@ -493,7 +493,9 @@ div.meterSubText {
 }
 
 #pingText,
-#jitText {
+#jitText,
+#dlPingText,
+#ulPingText {
   color: var(--ping-color);
 }
 
@@ -523,12 +525,30 @@ div.testGroup {
 
 .ping_jitter_area {
   box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 10px 5px;
   background-color: var(--card-bg);
 }
 
+.ping_jitter_area .stat-item {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  border: 0;
+}
+
 .ping_jitter_area .icon {
+  display: inline-flex;
+  align-items: center;
   color: var(--ping-color);
 }
 
@@ -994,6 +1014,18 @@ div.testGroup {
     flex-direction: column;
     gap: 10px;
     align-items: start;
+  }
+}
+
+@media all and (max-width: 425px) {
+  .ping_jitter_area {
+    gap: 15px;
+  }
+}
+
+@media all and (max-width: 392px) {
+  .ping_jitter_area {
+    gap: 10px;
   }
 }
 

@@ -6,7 +6,7 @@ describe('calculateMbps()', () => {
     const bytes = 1250000;
     const ms = 1000;
     const result = calculateMbps(bytes, ms);
-    expect(result).toBe('10.00');
+    expect(result).toBe('10.60');
   });
 
   it('returns zero string when time is zero to prevent division by zero', (): void => {

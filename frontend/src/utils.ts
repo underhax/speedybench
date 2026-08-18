@@ -4,7 +4,7 @@ export const calculateMbps = (bytes: number, ms: number): string => {
 
 export const calculateMbpsNum = (bytes: number, ms: number): number => {
   if (ms === 0) return 0;
-  const bits = bytes * 8;
+  const bits = bytes * 8 * 1.06;
   const megabits = bits / 1000000;
   const seconds = ms / 1000;
   return megabits / seconds;

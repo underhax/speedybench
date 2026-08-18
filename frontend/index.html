@@ -124,26 +124,6 @@
                 <input
                   type="radio"
                   name="calcMethod"
-                  value="cumulative"
-                >
-                <div class="radio-content">
-                  <span
-                    class="radio-title"
-                    data-i18n="settings_calc_cum_title"
-                    >Cumulative Average</span
-                  >
-                  <span
-                    class="radio-desc"
-                    data-i18n="settings_calc_cum_desc"
-                    >Strict mathematical average over the entire test duration. Accurate for true
-                    data transfer speeds.</span
-                  >
-                </div>
-              </label>
-              <label class="radio-option">
-                <input
-                  type="radio"
-                  name="calcMethod"
                   value="peak"
                 >
                 <div class="radio-content">
@@ -157,6 +137,26 @@
                     data-i18n="settings_calc_peak_desc"
                     >Smart smoothing that drops the initial warmup phase and anomalies to show pure
                     channel capacity.</span
+                  >
+                </div>
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="calcMethod"
+                  value="cumulative"
+                >
+                <div class="radio-content">
+                  <span
+                    class="radio-title"
+                    data-i18n="settings_calc_cum_title"
+                    >Cumulative Average</span
+                  >
+                  <span
+                    class="radio-desc"
+                    data-i18n="settings_calc_cum_desc"
+                    >Strict mathematical average over the entire test duration. Accurate for true
+                    data transfer speeds.</span
                   >
                 </div>
               </label>
@@ -229,38 +229,90 @@
     <div id="test">
       <div class="testGroup">
         <div class="ping_jitter_area">
-          <span
-            class="icon"
-            id="ping-icon"
-          ></span>
-          <span
-            class="title"
-            data-i18n="ping"
-            >Ping</span
+          <fieldset
+            class="stat-item"
+            data-i18n-aria="idle_ping"
+            aria-label="Idle Ping"
+            data-i18n-title="idle_ping"
+            title="Idle Ping"
           >
-          <span
-            id="pingText"
-            class="meterText"
-          ></span>
-          <span
-            class="unit"
-            data-i18n="unit_ms"
-            >ms</span
+            <span
+              class="icon"
+              id="ping-icon"
+            ></span>
+            <span
+              id="pingText"
+              class="meterText"
+            ></span>
+            <span
+              class="unit"
+              data-i18n="unit_ms"
+              >ms</span
+            >
+          </fieldset>
+          <fieldset
+            class="stat-item"
+            data-i18n-aria="dl_ping"
+            aria-label="Download Latency"
+            data-i18n-title="dl_ping"
+            title="Download Latency"
           >
-          <span
-            class="title"
-            data-i18n="jitter"
-            >Jitter</span
+            <span
+              class="icon"
+              id="dl-ping-icon"
+            ></span>
+            <span
+              id="dlPingText"
+              class="meterText"
+            ></span>
+            <span
+              class="unit"
+              data-i18n="unit_ms"
+              >ms</span
+            >
+          </fieldset>
+          <fieldset
+            class="stat-item"
+            data-i18n-aria="ul_ping"
+            aria-label="Upload Latency"
+            data-i18n-title="ul_ping"
+            title="Upload Latency"
           >
-          <span
-            id="jitText"
-            class="meterText"
-          ></span>
-          <span
-            class="unit"
-            data-i18n="unit_ms"
-            >ms</span
+            <span
+              class="icon"
+              id="ul-ping-icon"
+            ></span>
+            <span
+              id="ulPingText"
+              class="meterText"
+            ></span>
+            <span
+              class="unit"
+              data-i18n="unit_ms"
+              >ms</span
+            >
+          </fieldset>
+          <fieldset
+            class="stat-item"
+            data-i18n-aria="jitter"
+            aria-label="Jitter"
+            data-i18n-title="jitter"
+            title="Jitter"
           >
+            <span
+              class="icon"
+              id="jitter-icon"
+            ></span>
+            <span
+              id="jitText"
+              class="meterText"
+            ></span>
+            <span
+              class="unit"
+              data-i18n="unit_ms"
+              >ms</span
+            >
+          </fieldset>
         </div>
 
         <div class="testArea">

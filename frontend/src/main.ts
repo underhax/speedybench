@@ -51,6 +51,9 @@ function injectIcons(): void {
   setIcon('download-icon', 'download');
   setIcon('upload-icon', 'upload');
   setIcon('ping-icon', 'ping');
+  setIcon('dl-ping-icon', 'down-ping');
+  setIcon('ul-ping-icon', 'up-ping');
+  setIcon('jitter-icon', 'jitter');
   setIcon('ip-icon', 'ip');
   setIcon('lang-icon', 'language');
   setIcon('logo-icon', 'logo');
@@ -457,7 +460,7 @@ let worker: Worker | null = null;
 let isRunning = false;
 
 function initUI(): void {
-  const ids = ['dlText', 'ulText', 'pingText', 'jitText', 'ip'];
+  const ids = ['dlText', 'ulText', 'pingText', 'dlPingText', 'ulPingText', 'jitText', 'ip'];
   ids.forEach((id) => {
     const el = document.querySelector(`#${id}`);
     if (el) el.textContent = '';
@@ -504,8 +507,13 @@ function handleDlProgress(
   timeMs: number,
   samples?: SampleObj[],
   chartSamples?: SampleObj[],
+  loadedPing?: string,
 ): void {
   updateMetric('#dlText', '#dlSubText', value, bytes, timeMs);
+  if (loadedPing) {
+    const el = document.querySelector('#dlPingText');
+    if (el) el.textContent = loadedPing;
+  }
   const chartEl = document.querySelector('#dlChart');
   const drawSamples = chartSamples ?? samples;
   if (chartEl && drawSamples) {
@@ -523,8 +531,9 @@ function handleDlDone(
   timeMs: number,
   samples?: SampleObj[],
   chartSamples?: SampleObj[],
+  loadedPing?: string,
 ): void {
-  handleDlProgress(value, bytes, timeMs, samples, chartSamples);
+  handleDlProgress(value, bytes, timeMs, samples, chartSamples, loadedPing);
   if (chartSamples) dlChartSamples = chartSamples;
   if (samples) {
     dlSamples = samples;
@@ -539,8 +548,13 @@ function handleUlProgress(
   timeMs: number,
   samples?: SampleObj[],
   chartSamples?: SampleObj[],
+  loadedPing?: string,
 ): void {
   updateMetric('#ulText', '#ulSubText', value, bytes, timeMs);
+  if (loadedPing) {
+    const el = document.querySelector('#ulPingText');
+    if (el) el.textContent = loadedPing;
+  }
   const chartEl = document.querySelector('#ulChart');
   const drawSamples = chartSamples ?? samples;
   if (chartEl && drawSamples) {
@@ -558,8 +572,9 @@ function handleUlDone(
   timeMs: number,
   samples?: SampleObj[],
   chartSamples?: SampleObj[],
+  loadedPing?: string,
 ): void {
-  handleUlProgress(value, bytes, timeMs, samples, chartSamples);
+  handleUlProgress(value, bytes, timeMs, samples, chartSamples, loadedPing);
   if (chartSamples) ulChartSamples = chartSamples;
   if (samples) {
     ulSamples = samples;
@@ -569,23 +584,23 @@ function handleUlDone(
 }
 
 function handleWorkerMessage(e: MessageEvent): void {
-  const { type, value, jitter, samples, chartSamples, bytes, timeMs } = e.data;
+  const { type, value, jitter, samples, chartSamples, bytes, timeMs, loadedPing } = e.data;
   debugLog('received worker message', { chartSamples, samples, type });
   switch (type) {
     case 'ping':
       handlePing(value, jitter);
       break;
     case 'dl_progress':
-      handleDlProgress(value, bytes, timeMs, samples, chartSamples);
+      handleDlProgress(value, bytes, timeMs, samples, chartSamples, loadedPing);
       break;
     case 'dl_done':
-      handleDlDone(value, bytes, timeMs, samples, chartSamples);
+      handleDlDone(value, bytes, timeMs, samples, chartSamples, loadedPing);
       break;
     case 'ul_progress':
-      handleUlProgress(value, bytes, timeMs, samples, chartSamples);
+      handleUlProgress(value, bytes, timeMs, samples, chartSamples, loadedPing);
       break;
     case 'ul_done':
-      handleUlDone(value, bytes, timeMs, samples, chartSamples);
+      handleUlDone(value, bytes, timeMs, samples, chartSamples, loadedPing);
       break;
     case 'status': {
       if (value === 'done') {
