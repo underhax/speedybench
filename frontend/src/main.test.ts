@@ -1,5 +1,6 @@
 import './setup.ts';
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { localize } from './localize.ts';
 
 const mockWorkerInstance = {
   onmessage: null as ((ev: MessageEvent) => void) | null,
@@ -29,6 +30,8 @@ describe('Main', () => {
   let fetchMock: Mock;
 
   beforeEach((): void => {
+    localStorage.clear();
+    sessionStorage.clear();
     vi.resetModules();
     vi.stubGlobal('Worker', MockWorker);
     document.body.innerHTML = `
@@ -39,13 +42,21 @@ describe('Main', () => {
       <div id="lang-selected"></div>
       <span id="current-lang-text"></span>
       <ul id="lang-options"></ul>
-      <div id="dlText"></div>
-      <div id="dlSubText"></div>
-      <div id="ulText"></div>
-      <div id="ulSubText"></div>
+      <div class="testArea">
+        <div id="dlText"></div>
+        <div id="dlSubText"></div>
+        <div id="dlPingText"></div>
+        <svg id="dlChart"></svg>
+        <button id="dl-info-btn" class="hidden"></button>
+      </div>
+      <div class="testArea">
+        <div id="ulText"></div>
+        <div id="ulSubText"></div>
+        <div id="ulPingText"></div>
+        <svg id="ulChart"></svg>
+        <button id="ul-info-btn" class="hidden"></button>
+      </div>
       <div id="pingText"></div>
-      <div id="dlPingText"></div>
-      <div id="ulPingText"></div>
       <div id="jitText"></div>
       <div id="ip"></div>
       <div id="download-icon"></div>
@@ -56,6 +67,13 @@ describe('Main', () => {
       <div id="jitter-icon"></div>
       <div id="ip-icon"></div>
       <div id="lang-icon"></div>
+      <div id="details-modal" class="hidden">
+        <h3 id="details-title"></h3>
+        <button id="details-close"></button>
+        <table>
+          <tbody id="details-tbody"></tbody>
+        </table>
+      </div>
     `;
 
     vi.clearAllMocks();
@@ -168,6 +186,173 @@ describe('Main', () => {
 
     startBtn?.click();
     expect(startBtn?.classList.contains('running')).toBe(false);
+  });
+
+  it('renders charts and opens details modal with full summary for download and upload', async (): Promise<void> => {
+    localStorage.setItem(
+      'speedybench_settings',
+      JSON.stringify({ calcMethod: 'peak', save: true, size: 200, threads: 4, time: 15 }),
+    );
+    await import('./main.ts');
+    const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
+    startBtn.click();
+    await vi.waitFor(() => {
+      expect(startBtn.classList.contains('running')).toBe(true);
+    });
+
+    const mockSamples = [
+      { bytes: 1048576, speed: 50, timeMs: 500 },
+      { bytes: 3145728, speed: 100, timeMs: 1000 },
+    ];
+
+    emitWorkerMessage({
+      bytes: 1048576,
+      chartSamples: mockSamples,
+      loadedPing: '15',
+      samples: mockSamples,
+      timeMs: 500,
+      type: 'dl_progress',
+      value: '50.00',
+    });
+    expect(document.querySelector('#dlPingText')?.textContent).toBe('15');
+    expect(document.querySelector('#dlChart')?.innerHTML).toContain('<path');
+
+    emitWorkerMessage({
+      bytes: 3145728,
+      chartSamples: mockSamples,
+      loadedPing: '18',
+      samples: mockSamples,
+      timeMs: 1000,
+      type: 'dl_done',
+      value: '100.00',
+    });
+    const dlInfoBtn = document.querySelector('#dl-info-btn') as HTMLButtonElement;
+    expect(dlInfoBtn.classList.contains('hidden')).toBe(false);
+
+    emitWorkerMessage({
+      bytes: 1048576,
+      chartSamples: mockSamples,
+      loadedPing: '20',
+      samples: mockSamples,
+      timeMs: 500,
+      type: 'ul_progress',
+      value: '40.00',
+    });
+    expect(document.querySelector('#ulPingText')?.textContent).toBe('20');
+    expect(document.querySelector('#ulChart')?.innerHTML).toContain('<path');
+
+    emitWorkerMessage({
+      bytes: 3145728,
+      chartSamples: mockSamples,
+      loadedPing: '22',
+      samples: mockSamples,
+      timeMs: 1000,
+      type: 'ul_done',
+      value: '80.00',
+    });
+    const ulInfoBtn = document.querySelector('#ul-info-btn') as HTMLButtonElement;
+    expect(ulInfoBtn.classList.contains('hidden')).toBe(false);
+
+    const detailsModal = document.querySelector('#details-modal') as HTMLElement;
+    const detailsTitle = document.querySelector('#details-title') as HTMLElement;
+    const detailsClose = document.querySelector('#details-close') as HTMLElement;
+    const detailsTbody = document.querySelector('#details-tbody') as HTMLElement;
+
+    dlInfoBtn.click();
+    expect(detailsModal.classList.contains('hidden')).toBe(false);
+    expect(detailsTitle.textContent).toBe(localize('details_title_dl'));
+    expect(detailsTbody.querySelectorAll('tr').length).toBe(4);
+
+    detailsClose.click();
+    expect(detailsModal.classList.contains('hidden')).toBe(true);
+
+    ulInfoBtn.click();
+    expect(detailsModal.classList.contains('hidden')).toBe(false);
+    expect(detailsTitle.textContent).toBe(localize('details_title_ul'));
+
+    Object.defineProperty(MouseEvent.prototype, 'target', {
+      configurable: true,
+      value: detailsModal,
+    });
+    detailsModal.click();
+    expect(detailsModal.classList.contains('hidden')).toBe(true);
+
+    dlInfoBtn.click();
+    expect(detailsModal.classList.contains('hidden')).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(detailsModal.classList.contains('hidden')).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(detailsModal.classList.contains('hidden')).toBe(true);
+  });
+
+  it('renders details modal with cumulative calcMethod summary', async (): Promise<void> => {
+    localStorage.setItem(
+      'speedybench_settings',
+      JSON.stringify({ calcMethod: 'cumulative', save: true, size: 200, threads: 4, time: 15 }),
+    );
+    await import('./main.ts');
+    const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
+    startBtn.click();
+    await vi.waitFor(() => {
+      expect(startBtn.classList.contains('running')).toBe(true);
+    });
+
+    const mockSamples = [{ bytes: 1048576, speed: 50, timeMs: 500 }];
+
+    emitWorkerMessage({
+      bytes: 1048576,
+      chartSamples: mockSamples,
+      samples: mockSamples,
+      timeMs: 500,
+      type: 'dl_done',
+      value: '50.00',
+    });
+
+    const dlInfoBtn = document.querySelector('#dl-info-btn') as HTMLButtonElement;
+    dlInfoBtn.click();
+
+    const detailsTbody = document.querySelector('#details-tbody') as HTMLElement;
+    expect(detailsTbody.textContent).toContain(localize('settings_calc_cum_title'));
+  });
+
+  it('handles empty progress and done messages without crashing', async (): Promise<void> => {
+    await import('./main.ts');
+    const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
+    startBtn.click();
+    await vi.waitFor(() => {
+      expect(startBtn.classList.contains('running')).toBe(true);
+    });
+
+    emitWorkerMessage({
+      bytes: 100,
+      timeMs: 200,
+      type: 'dl_progress',
+      value: '10.00',
+    });
+
+    emitWorkerMessage({
+      bytes: 100,
+      timeMs: 200,
+      type: 'dl_done',
+      value: '10.00',
+    });
+
+    emitWorkerMessage({
+      bytes: 100,
+      timeMs: 200,
+      type: 'ul_progress',
+      value: '10.00',
+    });
+
+    emitWorkerMessage({
+      bytes: 100,
+      timeMs: 200,
+      type: 'ul_done',
+      value: '10.00',
+    });
+
+    expect(startBtn.classList.contains('running')).toBe(true);
   });
 
   it('toggles theme', async (): Promise<void> => {
@@ -431,6 +616,39 @@ describe('Main', () => {
     radioPeak.dispatchEvent(new Event('change'));
     applyBtn.click();
     expect(localStorage.getItem('speedybench_settings')).toContain('"calcMethod":"peak"');
+  });
+
+  it('covers remaining handler branches via direct worker messages', async (): Promise<void> => {
+    await import('./main.ts');
+    const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
+    startBtn.click();
+    await vi.waitFor(() => {
+      expect(startBtn.classList.contains('running')).toBe(true);
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(document.querySelector('#ip')?.textContent).toBe('127.0.0.1');
+
+    emitWorkerMessage({ jitter: '2', type: 'ping', value: '10' });
+    expect(document.querySelector('#pingText')?.textContent).toBe('10');
+    expect(document.querySelector('#jitText')?.textContent).toBe('2');
+
+    emitWorkerMessage({
+      bytes: 100,
+      loadedPing: '15',
+      timeMs: 200,
+      type: 'dl_progress',
+      value: '1',
+    });
+    expect(document.querySelector('#dlPingText')?.textContent).toBe('15');
+
+    emitWorkerMessage({
+      bytes: 100,
+      loadedPing: '20',
+      timeMs: 200,
+      type: 'ul_progress',
+      value: '1',
+    });
+    expect(document.querySelector('#ulPingText')?.textContent).toBe('20');
   });
 });
 

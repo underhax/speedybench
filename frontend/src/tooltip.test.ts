@@ -63,6 +63,12 @@ describe('setupChartTooltip()', () => {
     expect(tooltip).not.toBeNull();
   });
 
+  it('configures highlight element with custom color variable', (): void => {
+    setupChartTooltip(testArea, svgEl, () => [], '--ul-color');
+    const highlight = testArea.querySelector('.chart-highlight');
+    expect(highlight?.getAttribute('data-color')).toBe('--ul-color');
+  });
+
   it('does not show tooltip when samples array is empty', (): void => {
     setupChartTooltip(testArea, svgEl, () => []);
     const hitArea = addHitArea(svgEl);
@@ -86,6 +92,95 @@ describe('setupChartTooltip()', () => {
     );
     const tooltip = testArea.querySelector('.chart-tooltip') as HTMLElement;
     expect(tooltip.classList.contains('visible')).toBe(true);
+  });
+
+  it('reuses cached bounding rects on consecutive mousemove events', (): void => {
+    const samples: SampleObj[] = [{ bytes: 1000, speed: 50.12, timeMs: 250 }];
+    setupChartTooltip(testArea, svgEl, () => samples);
+    const hitArea = addHitArea(svgEl);
+    mockBoundingClientRect(svgEl, { left: 0, width: 400 });
+    mockBoundingClientRect(testArea, { height: 160, left: 0, top: 0, width: 400 });
+
+    hitArea.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 100, clientY: 80 }),
+    );
+    hitArea.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 80 }),
+    );
+    const tooltip = testArea.querySelector('.chart-tooltip') as HTMLElement;
+    expect(tooltip.classList.contains('visible')).toBe(true);
+  });
+
+  it('handles missing sample at calculated index safely', (): void => {
+    const sparseSamples: SampleObj[] = [undefined as unknown as SampleObj];
+    setupChartTooltip(testArea, svgEl, () => sparseSamples);
+    const hitArea = addHitArea(svgEl);
+    mockBoundingClientRect(svgEl, { left: 0, width: 400 });
+    mockBoundingClientRect(testArea, { height: 160, left: 0, top: 0, width: 400 });
+
+    hitArea.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 400, clientY: 80 }),
+    );
+    const tooltip = testArea.querySelector('.chart-tooltip') as HTMLElement;
+    expect(tooltip.classList.contains('visible')).toBe(true);
+  });
+
+  it('safely aborts moveHighlight when cache is invalidated during calculation', (): void => {
+    const sampleWithSideEffect = {
+      bytes: 1000,
+      get speed(): number {
+        testArea.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        return 50;
+      },
+      timeMs: 250,
+    };
+    setupChartTooltip(testArea, svgEl, () => [sampleWithSideEffect]);
+    const hitArea = addHitArea(svgEl);
+    mockBoundingClientRect(svgEl, { left: 0, width: 400 });
+    mockBoundingClientRect(testArea, { height: 160, left: 0, top: 0, width: 400 });
+
+    expect((): void => {
+      hitArea.dispatchEvent(
+        new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 80 }),
+      );
+    }).toThrow();
+
+    const highlight = testArea.querySelector('.chart-highlight') as HTMLElement;
+    expect(highlight.classList.contains('visible')).toBe(false);
+  });
+
+  it('hides tooltip when mouse moves outside hit area', (): void => {
+    const samples: SampleObj[] = [{ bytes: 1000, speed: 50.12, timeMs: 250 }];
+    setupChartTooltip(testArea, svgEl, () => samples);
+    const hitArea = addHitArea(svgEl);
+    mockBoundingClientRect(svgEl, { left: 0, width: 400 });
+    mockBoundingClientRect(testArea, { height: 160, left: 0, top: 0, width: 400 });
+
+    hitArea.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 80 }),
+    );
+    const tooltip = testArea.querySelector('.chart-tooltip') as HTMLElement;
+    expect(tooltip.classList.contains('visible')).toBe(true);
+
+    svgEl.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 10 }));
+    expect(tooltip.classList.contains('visible')).toBe(false);
+  });
+
+  it('hides tooltip on mouseleave from svg element', (): void => {
+    const samples: SampleObj[] = [{ bytes: 1000, speed: 50.12, timeMs: 250 }];
+    setupChartTooltip(testArea, svgEl, () => samples);
+    const hitArea = addHitArea(svgEl);
+    mockBoundingClientRect(svgEl, { left: 0, width: 400 });
+    mockBoundingClientRect(testArea, { height: 160, left: 0, top: 0, width: 400 });
+
+    hitArea.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 80 }),
+    );
+    const tooltip = testArea.querySelector('.chart-tooltip') as HTMLElement;
+    expect(tooltip.classList.contains('visible')).toBe(true);
+
+    svgEl.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(false);
   });
 
   it('hides tooltip on mouseleave from testArea', (): void => {
@@ -218,8 +313,8 @@ describe('setupChartTooltip()', () => {
       new MouseEvent('mousemove', { bubbles: true, clientX: 200, clientY: 100 }),
     );
 
-    expect(Number.parseFloat(tooltip.style.left)).toBe(160); // 200 - 80/2
-    expect(Number.parseFloat(tooltip.style.top)).toBe(50); // 100 - 40 - 8 - 2
+    expect(Number.parseFloat(tooltip.style.left)).toBe(160);
+    expect(Number.parseFloat(tooltip.style.top)).toBe(50);
   });
 
   it('centers tooltip at the left edge correctly', (): void => {
@@ -238,6 +333,6 @@ describe('setupChartTooltip()', () => {
 
     hitArea.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0, clientY: 100 }));
 
-    expect(Number.parseFloat(tooltip.style.left)).toBe(-40); // 0 - 80/2
+    expect(Number.parseFloat(tooltip.style.left)).toBe(-40);
   });
 });

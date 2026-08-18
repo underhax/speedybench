@@ -344,6 +344,11 @@ func parseTimeout(r *http.Request) int {
 
 func (h *Handler) limitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			next(w, r)
+			return
+		}
+
 		ip := h.getClientIP(r)
 
 		h.ipMutex.Lock()

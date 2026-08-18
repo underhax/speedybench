@@ -17,6 +17,8 @@ describe('Localize', () => {
     document.body.innerHTML = `
       <div data-i18n="test_key"></div>
       <button id="startStopBtn" class=""></button>
+      <button id="ariaBtn" data-i18n-aria="start"></button>
+      <span id="titleSpan" data-i18n-title="start"></span>
     `;
 
     Object.defineProperty(navigator, 'language', {
@@ -89,6 +91,12 @@ describe('Localize', () => {
     const btn = document.querySelector('#startStopBtn');
     expect(btn?.textContent).toBe('Старт');
 
+    const ariaBtn = document.querySelector('#ariaBtn');
+    expect(ariaBtn?.getAttribute('aria-label')).toBe('Старт');
+
+    const titleSpan = document.querySelector('#titleSpan');
+    expect(titleSpan?.getAttribute('title')).toBe('Старт');
+
     btn?.classList.add('running');
     applyTranslations();
     expect(btn?.textContent).toBe('Отмена');
@@ -99,15 +107,25 @@ describe('Localize', () => {
     expect(initLanguage()).toBe('en');
   });
 
-  it('ignores elements with empty data-i18n attribute', (): void => {
+  it('ignores elements with empty data attributes', (): void => {
     const div = document.createElement('div');
     div.setAttribute('data-i18n', '');
     div.textContent = 'original';
     document.body.appendChild(div);
 
+    const emptyAria = document.createElement('div');
+    emptyAria.setAttribute('data-i18n-aria', '');
+    document.body.appendChild(emptyAria);
+
+    const emptyTitle = document.createElement('div');
+    emptyTitle.setAttribute('data-i18n-title', '');
+    document.body.appendChild(emptyTitle);
+
     applyTranslations();
 
     expect(div.textContent).toBe('original');
+    expect(emptyAria.hasAttribute('aria-label')).toBe(false);
+    expect(emptyTitle.hasAttribute('title')).toBe(false);
   });
 
   it('handles missing startStopBtn safely', (): void => {

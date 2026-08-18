@@ -6,11 +6,12 @@
   --h1-color: #c0bab2;
   --card-bg: #26273b;
   --border-color: #26273b;
-  --btn-bg: rgb(42, 43, 66);
+  --btn-bg: #2a2b42;
+  --btn-hover-bg: #2c2d46;
   --btn-text: #fff;
   --dl-color: #6ffbf7;
   --ul-color: #ab6ae2;
-  --ping-color: #fff38e;
+  --ping-color: #e0c900;
   --empty-meter: #9193a8;
   --empty-range: #9193a8;
   --range-thumb-color: #30b3b0;
@@ -35,6 +36,7 @@ html.theme-light {
   --card-bg: #fff;
   --border-color: #f7f7f7;
   --btn-bg: #fff;
+  --btn-hover-bg: #fcfcfc;
   --btn-text: #1a1a1a;
   --dl-color: #2bc4bf;
   --ul-color: #ab6ae2;
@@ -428,6 +430,11 @@ circle.chart-dot.visible[data-color='--ul-color'] {
   border: 0.5em solid var(--border-color);
   border-radius: 0;
   transition: all 0.3s;
+}
+
+#startStopBtn:hover {
+  background-color: var(--btn-hover-bg);
+  transition: all 0.7s ease-in;
 }
 
 #test {

@@ -571,6 +571,48 @@ func TestLimitMiddleware(t *testing.T) {
 	<-done
 }
 
+func TestLimitMiddlewareHeadBypass(t *testing.T) {
+	h := NewHandler(fstest.MapFS{}, 2)
+	h.maxPerIP = 1
+
+	done := make(chan struct{})
+
+	handler := h.limitMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		<-done
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+	req.RemoteAddr = "10.0.0.1:5678"
+	rr := httptest.NewRecorder()
+	go func() {
+		handler.ServeHTTP(rr, req)
+	}()
+
+	time.Sleep(5 * time.Millisecond)
+
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req)
+	if rr2.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 for second GET, got %d", rr2.Code)
+	}
+
+	headReq := httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/", http.NoBody)
+	headReq.RemoteAddr = "10.0.0.1:5678"
+	rr3 := httptest.NewRecorder()
+	handler.ServeHTTP(rr3, headReq)
+	if rr3.Code != http.StatusOK {
+		t.Errorf("expected 200 for HEAD bypass, got %d", rr3.Code)
+	}
+
+	close(done)
+	time.Sleep(10 * time.Millisecond)
+}
+
 func TestNewHandler_NumCPU(t *testing.T) {
 	originalNumCPU := getNumCPU
 	defer func() { getNumCPU = originalNumCPU }()
