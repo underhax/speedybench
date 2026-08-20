@@ -514,9 +514,9 @@ self.onmessage = async (e: MessageEvent): Promise<void> => {
   if (e.data?.type === 'start') {
     const {
       base,
-      calcMethod = 'cumulative',
+      calcMethod = 'peak',
       debug = false,
-      sizeMB = 100,
+      sizeMB = 200,
       threads = 4,
       timeoutSec = 15,
     } = e.data;

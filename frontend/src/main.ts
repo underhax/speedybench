@@ -116,7 +116,7 @@ interface Settings {
 }
 
 const defaultSettings: Settings = {
-  calcMethod: 'cumulative',
+  calcMethod: 'peak',
   save: false,
   size: 200,
   threads: 4,

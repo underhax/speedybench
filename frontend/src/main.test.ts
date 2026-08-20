@@ -287,6 +287,10 @@ describe('Main', () => {
   });
 
   it('renders details modal with cumulative calcMethod summary', async (): Promise<void> => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<div id="settings-toggle"></div><div id="settings-modal"><button id="modal-close"></button><span id="size-val"></span><input type="range" id="size-slider" min="100" max="1000" step="100" value="200"><span id="time-val"></span><input type="range" id="time-slider" min="10" max="30" step="5" value="15"><span id="label-multi"></span><button id="threads-toggle"></button><span id="threads-icon"></span><span id="label-single"></span><input type="radio" name="calcMethod" value="cumulative"><input type="radio" name="calcMethod" value="peak"><input type="checkbox" id="save-settings-chk"><button id="settings-apply-btn"></button><button id="settings-reset-btn"></button></div>',
+    );
     localStorage.setItem(
       'speedybench_settings',
       JSON.stringify({ calcMethod: 'cumulative', save: true, size: 200, threads: 4, time: 15 }),

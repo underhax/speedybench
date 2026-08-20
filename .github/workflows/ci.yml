@@ -32,7 +32,7 @@ jobs:
         uses: biomejs/setup-biome@4c91541eaada48f67d7dbd7833600ce162b68f51 # v2.7.1
 
       - name: Run Biome
-        run: cd frontend && biome ci .
+        run: biome ci frontend/
 
       - name: Check frontend types
         run: npm --prefix frontend exec -- tsc --project frontend/tsconfig.json --noEmit
