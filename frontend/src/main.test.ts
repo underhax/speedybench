@@ -686,4 +686,26 @@ describe('updateSliderGradient()', () => {
     updateSliderGradient(input);
     expect(input.style.getPropertyValue('--value-percent')).toBe('0%');
   });
+
+  it('updates loaded latency text when dl_progress and ul_progress include loadedPing', async (): Promise<void> => {
+    await import('./main.ts');
+
+    emitWorkerMessage({
+      bytes: 0,
+      loadedPing: '15.0',
+      timeMs: 0,
+      type: 'dl_progress',
+      value: '100',
+    });
+    expect(document.querySelector('#dlPingText')?.textContent).toBe('15.0');
+
+    emitWorkerMessage({
+      bytes: 0,
+      loadedPing: '12.0',
+      timeMs: 0,
+      type: 'ul_progress',
+      value: '50',
+    });
+    expect(document.querySelector('#ulPingText')?.textContent).toBe('12.0');
+  });
 });

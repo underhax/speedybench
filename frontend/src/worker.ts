@@ -83,9 +83,11 @@ const fetchAndConsumeGarbage = async (
   sizeMB: number,
   timeoutSec: number,
   onChunk: (bytes: number) => boolean,
+  signal: AbortSignal,
 ): Promise<void> => {
   const response = await fetch(new URL(`./api/garbage?size=${sizeMB}&time=${timeoutSec}`, base), {
     cache: 'no-store',
+    signal,
   });
   if (!response.body) throw new Error('ReadableStream not supported');
   const reader = response.body.getReader();
@@ -145,6 +147,7 @@ const runDownloadTest = async (
   let lastBytes = 0;
   let lastTime = start;
   const pingTracker = createLoadedPingTracker(base);
+  const abortController = new AbortController();
 
   const handleDownloadChunk = (chunkBytes: number): boolean => {
     totalBytes += chunkBytes;
@@ -171,7 +174,13 @@ const runDownloadTest = async (
     let retries = 0;
     while (active) {
       try {
-        await fetchAndConsumeGarbage(base, sizeMB, timeoutSec, handleDownloadChunk);
+        await fetchAndConsumeGarbage(
+          base,
+          sizeMB,
+          timeoutSec,
+          handleDownloadChunk,
+          abortController.signal,
+        );
         break;
       } catch (_e) {
         if (!active) break;
@@ -203,7 +212,7 @@ const runDownloadTest = async (
     if (calcMethod === 'peak') {
       uiMbps = calculateWindowMbps(recentIntervals, 2000);
     } else {
-      uiMbps = calculateMbpsNum(currentBytes, currentTime);
+      uiMbps = calculateWindowMbps(recentIntervals, 1000);
     }
 
     chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
@@ -239,12 +248,14 @@ const runDownloadTest = async (
     });
     if (timeSinceStart >= timeoutMs || totalBytes >= maxBytes) {
       active = false;
+      abortController.abort();
       clearInterval(reporter);
     }
   }, 250);
 
   setTimeout(() => {
     active = false;
+    abortController.abort();
   }, timeoutMs);
 
   await Promise.all(workers);
@@ -307,6 +318,7 @@ const runUploadTest = async (
   let lastBytes = 0;
   let lastTime = start;
   const pingTracker = createLoadedPingTracker(base);
+  const abortController = new AbortController();
 
   const baseChunk = new Uint8Array(1024 * 1024);
   for (let i = 0; i < baseChunk.length; i += 65536) {
@@ -322,15 +334,21 @@ const runUploadTest = async (
   const blob16MB = new Blob(chunks16 as BlobPart[]);
 
   type UploadTier = 1 | 4 | 16;
-  const nextTier = (tier: UploadTier): UploadTier => (tier === 1 ? 4 : 16);
-  const prevTier = (tier: UploadTier): UploadTier => (tier === 16 ? 4 : 1);
-  const adaptTier = (tier: UploadTier, durationMs: number): UploadTier => {
-    if (durationMs < 150) return nextTier(tier);
-    if (durationMs > 600) return prevTier(tier);
-    return tier;
+  const adaptTier = (tier: UploadTier, durationMs: number, bytesSent: number): UploadTier => {
+    const mbps = calculateMbpsNum(bytesSent, durationMs);
+    if (tier === 16) return mbps < 80 ? 4 : 16;
+    if (tier === 4) {
+      if (mbps > 100) return 16;
+      if (mbps < 20) return 1;
+      return 4;
+    }
+    return mbps > 30 ? 4 : 1;
   };
 
-  const sendChunk = async (payload: Blob): Promise<{ durationMs: number; success: boolean }> => {
+  const sendChunk = async (
+    payload: Blob,
+    signal: AbortSignal,
+  ): Promise<{ durationMs: number; success: boolean }> => {
     return new Promise<{ durationMs: number; success: boolean }>((resolve) => {
       const sendStart = performance.now();
       const xhr = new XMLHttpRequest();
@@ -361,6 +379,8 @@ const runUploadTest = async (
         resolve({ durationMs: performance.now() - sendStart, success: false });
       xhr.onabort = (): void =>
         resolve({ durationMs: performance.now() - sendStart, success: true });
+
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
 
       xhr.send(payload);
     });
@@ -398,14 +418,20 @@ const runUploadTest = async (
     }
     let retries = 0;
     let currentTier: UploadTier = 1;
+    let isColdStart = true;
     while (active) {
-      const { durationMs, success } = await sendChunk(payloadForTier(currentTier));
+      const payload = payloadForTier(currentTier);
+      const { durationMs, success } = await sendChunk(payload, abortController.signal);
       if (!success) {
         retries = await handleUploadFailure(retries);
         continue;
       }
       retries = 0;
-      currentTier = adaptTier(currentTier, durationMs);
+      if (isColdStart) {
+        isColdStart = false;
+        continue;
+      }
+      currentTier = adaptTier(currentTier, durationMs, payload.size);
     }
   };
 
@@ -427,7 +453,7 @@ const runUploadTest = async (
     if (calcMethod === 'peak') {
       uiMbps = calculateWindowMbps(recentIntervals, 2000);
     } else {
-      uiMbps = calculateMbpsNum(currentBytes, currentTime);
+      uiMbps = calculateWindowMbps(recentIntervals, 1000);
     }
 
     chartSamples.push({ bytes: totalBytes, speed: uiMbps, timeMs: timeSinceStart });
@@ -463,12 +489,14 @@ const runUploadTest = async (
     });
     if (timeSinceStart >= timeoutMs || totalBytes >= maxBytes) {
       active = false;
+      abortController.abort();
       clearInterval(reporter);
     }
   }, 250);
 
   setTimeout(() => {
     active = false;
+    abortController.abort();
   }, timeoutMs);
 
   await Promise.all(workers);

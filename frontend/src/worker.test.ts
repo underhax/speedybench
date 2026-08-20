@@ -912,7 +912,7 @@ describe('SpeedyBenchWorker', () => {
     );
   });
 
-  it('dynamically adapts upload payload chunk size based on transfer duration', async (): Promise<void> => {
+  it('dynamically adapts upload payload chunk size based on throughput', async (): Promise<void> => {
     global.fetch = vi.fn().mockResolvedValue({
       body: {
         getReader: () => ({
@@ -924,6 +924,7 @@ describe('SpeedyBenchWorker', () => {
     });
 
     const sentBlobs: Blob[] = [];
+    let sendCount = 0;
     (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
       upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
       onload: (() => void) | null = null;
@@ -933,11 +934,14 @@ describe('SpeedyBenchWorker', () => {
       abort = vi.fn();
       send = vi.fn().mockImplementation(function (this: MockXHR, payload: Blob) {
         sentBlobs.push(payload);
+        sendCount++;
         if (this.upload.onprogress) {
           this.upload.onprogress({ loaded: payload.size } as ProgressEvent);
         }
-        if (sentBlobs.length === 4) {
-          performanceNowValue += 700;
+        if (sendCount === 4) {
+          performanceNowValue += 2000;
+        } else {
+          performanceNowValue += 10;
         }
         setTimeout(() => {
           if (this.onload) this.onload();
@@ -1107,5 +1111,100 @@ describe('SpeedyBenchWorker', () => {
       expect(bytes).toBe(0);
     }
     expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'ul_done' }));
+  });
+
+  it('sends dl_progress using cumulative windowed calculation', async (): Promise<void> => {
+    let bytesRead = 0;
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/api/garbage')) {
+        return {
+          body: {
+            getReader: () => ({
+              cancel: vi.fn().mockResolvedValue(undefined),
+              read: async () => {
+                if (bytesRead > 4 * 1024 * 1024) {
+                  return { done: true, value: undefined };
+                }
+                bytesRead += 256 * 1024;
+                performanceNowValue += 250;
+                return new Promise((resolve) => {
+                  setTimeout(() => resolve({ done: false, value: new Uint8Array(256 * 1024) }), 5);
+                });
+              },
+            }),
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: {
+        base: 'http://127.0.0.1/',
+        calcMethod: 'cumulative',
+        sizeMB: 10,
+        threads: 1,
+        timeoutSec: 10,
+        type: 'start',
+      },
+    } as MessageEvent);
+
+    const dlProgressCalls = postMessageMock.mock.calls.filter(
+      (call) => (call[0] as { type: string }).type === 'dl_progress',
+    );
+    expect(dlProgressCalls.length).toBeGreaterThan(0);
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'dl_done' }));
+  });
+
+  it('covers adaptTier tier 4 steady-state and downgrade to tier 1', async (): Promise<void> => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+    const sentBlobs: Blob[] = [];
+    let sendCount = 0;
+    (global as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = class MockXHR {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      open = vi.fn();
+      abort = vi.fn();
+      send = vi.fn().mockImplementation(function (this: MockXHR, payload: Blob) {
+        sentBlobs.push(payload);
+        sendCount++;
+        if (this.upload.onprogress) {
+          this.upload.onprogress({ loaded: payload.size } as ProgressEvent);
+        }
+        if (sendCount === 3) {
+          performanceNowValue += 500;
+        } else if (sendCount === 4) {
+          performanceNowValue += 5000;
+        } else {
+          performanceNowValue += 10;
+        }
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      });
+    };
+
+    const onmessage = window.onmessage as ((e: MessageEvent) => Promise<void>) | null;
+    await onmessage?.({
+      data: {
+        base: 'http://127.0.0.1/',
+        sizeMB: 100,
+        threads: 1,
+        timeoutSec: 30,
+        type: 'start',
+      },
+    } as MessageEvent);
+
+    expect(sentBlobs.length).toBeGreaterThanOrEqual(5);
+    expect(sentBlobs[0]?.size).toBe(1024 * 1024);
+    expect(sentBlobs[1]?.size).toBe(1024 * 1024);
+    expect(sentBlobs[2]?.size).toBe(4 * 1024 * 1024);
+    expect(sentBlobs[3]?.size).toBe(4 * 1024 * 1024);
+    expect(sentBlobs[4]?.size).toBe(1024 * 1024);
   });
 });
