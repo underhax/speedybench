@@ -24,6 +24,7 @@ The backend is built with Go for maximum performance and minimal resource footpr
 - **Accurate Metrics**: Measures ping, jitter, download, and upload bandwidth.
 - **Interactive Visualizations**: Includes real-time SVG charts and detailed statistical tables (accessible via the info icon) for in-depth analysis of download and upload phases, with quick one-click copying of measurements in TSV format.
 - **Lightweight**: Distributed as a single, self-contained binary with embedded frontend assets.
+- **Built-in Self-Updater**: Update the binary in-place on demand from GitHub Releases via `./speedybench update` with SHA256 checksum verification.
 - **Self-Hosted**: Perfect for home labs, private networks, or public servers to test routing and connectivity.
 - **Cross-Platform**: Runs seamlessly on Linux, macOS, and Windows.
 - **Secure by Default**: Containerized environments run as non-root with read-only filesystems and dropped capabilities.
@@ -44,6 +45,27 @@ You can run SpeedyBench using a pre-compiled binary or via Docker.
    ./speedybench
    ```
 4. Access the web interface at `http://127.0.0.1:8989`.
+
+#### CLI Commands
+
+SpeedyBench provides built-in CLI commands and options for maintenance:
+
+- **`update`**: Queries GitHub Releases on demand, verifies SHA256 checksums, and performs an atomic in-place binary upgrade:
+  ```bash
+  ./speedybench update
+  ```
+- **`help`, `-h`, `--help`**: Displays usage instructions, available commands, and environment variables:
+  ```bash
+  ./speedybench help
+  ```
+- **`version`**: Prints the installed version of SpeedyBench:
+  ```bash
+  ./speedybench version
+  ```
+- **`--healthcheck`**: Executes a lightweight HTTP health check against the local server (exiting with code 0 if healthy, 1 if unhealthy). Specifically designed for Docker container and Compose health checks in minimal `scratch` environments:
+  ```bash
+  ./speedybench --healthcheck
+  ```
 
 #### Configuration
 
