@@ -100,6 +100,11 @@ describe('Localize', () => {
     btn?.classList.add('running');
     applyTranslations();
     expect(btn?.textContent).toBe('Отмена');
+
+    btn?.classList.remove('running');
+    btn?.classList.add('done');
+    applyTranslations();
+    expect(btn?.textContent).toBe('Повторить');
   });
 
   it('handles missing navigator.language', (): void => {
@@ -134,5 +139,14 @@ describe('Localize', () => {
     setLanguage('ru');
     applyTranslations();
     expect(true).toBe(true);
+  });
+
+  it('translates min, avg, and max keys across available languages', (): void => {
+    availableLanguages.forEach((lang) => {
+      setLanguage(lang.code);
+      expect(localize('min')).toBeTruthy();
+      expect(localize('avg')).toBeTruthy();
+      expect(localize('max')).toBeTruthy();
+    });
   });
 });

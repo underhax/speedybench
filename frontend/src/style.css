@@ -211,7 +211,8 @@ circle.chart-dot.visible[data-color='--ul-color'] {
   border-color: var(--border-highlight-ul-dot);
 }
 
-.chart-tooltip {
+.chart-tooltip,
+.stat-tooltip {
   position: absolute;
   z-index: 20;
   display: flex;
@@ -232,23 +233,36 @@ circle.chart-dot.visible[data-color='--ul-color'] {
   transition: opacity 0.12s;
 }
 
-.chart-tooltip::after {
+.chart-tooltip::after,
+.stat-tooltip::after {
   position: absolute;
-  top: 100%;
+  bottom: -5px;
   left: 50%;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
   content: '';
-  border: 8px solid transparent;
-  border-top-color: var(--bg-tooltip);
+  background: var(--bg-tooltip);
+  border-right: 1px solid var(--border-tooltip);
+  border-bottom: 1px solid var(--border-tooltip);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.stat-tooltip {
+  bottom: calc(100% + 10px);
+  left: 50%;
   transform: translateX(-50%);
 }
 
 @media (hover: none) {
-  .chart-tooltip {
+  .chart-tooltip,
+  .stat-tooltip {
     display: none;
   }
 }
 
-.chart-tooltip.visible {
+.chart-tooltip.visible,
+.stat-tooltip.visible {
   opacity: 1;
 }
 
@@ -543,6 +557,7 @@ div.testGroup {
 }
 
 .ping_jitter_area .stat-item {
+  position: relative;
   display: inline-flex;
   gap: 4px;
   align-items: center;
@@ -637,19 +652,53 @@ div.testGroup {
   color: var(--h1-color);
 }
 
+.modal-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-btn-ghost,
 .close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  font-size: 1.5rem;
-  line-height: 1;
   color: var(--text-color);
   cursor: pointer;
   background: none;
   border: none;
-  transition: color 0.2s;
+  border-radius: 4px;
+  transition:
+    color 0.2s,
+    opacity 0.2s,
+    transform 0.15s;
 }
 
+.icon-btn-ghost {
+  font-size: 1.2rem;
+}
+
+.icon-btn-ghost:hover,
 .close-btn:hover {
   color: var(--h1-color);
+  opacity: 0.8;
+}
+
+.icon-btn-ghost:active,
+.close-btn:active {
+  transform: scale(0.92);
+}
+
+.icon-btn-ghost.copied {
+  color: var(--dl-color);
+}
+
+.close-btn {
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
 .modal-body {

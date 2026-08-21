@@ -1,7 +1,12 @@
 import './setup.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setDebugEnabled } from './debug.ts';
-import { setupChartTooltip } from './tooltip.ts';
+import {
+  formatDeltaPing,
+  formatIdlePingStats,
+  setupChartTooltip,
+  setupStatTooltip,
+} from './tooltip.ts';
 
 type SampleObj = { speed: number; bytes: number; timeMs: number };
 
@@ -334,5 +339,134 @@ describe('setupChartTooltip()', () => {
     hitArea.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0, clientY: 100 }));
 
     expect(Number.parseFloat(tooltip.style.left)).toBe(-40);
+  });
+});
+
+describe('formatIdlePingStats()', () => {
+  it('returns null when any argument is empty', () => {
+    expect(formatIdlePingStats('', '15.0', '20.0')).toBeNull();
+    expect(formatIdlePingStats('10.0', '', '20.0')).toBeNull();
+    expect(formatIdlePingStats('10.0', '15.0', '')).toBeNull();
+  });
+
+  it('formats idle ping statistics as an array with localized labels and units on each line', () => {
+    const result = formatIdlePingStats('12.3', '15.6', '24.8');
+    expect(result).toEqual(['Min: 12.3 ms', 'Avg: 15.6 ms', 'Max: 24.8 ms']);
+  });
+});
+
+describe('formatDeltaPing()', () => {
+  it('returns null when inputs are invalid or non-positive', () => {
+    expect(formatDeltaPing('', '10.0')).toBeNull();
+    expect(formatDeltaPing('20.0', '')).toBeNull();
+    expect(formatDeltaPing('abc', '10.0')).toBeNull();
+    expect(formatDeltaPing('0', '10.0')).toBeNull();
+    expect(formatDeltaPing('20.0', '0')).toBeNull();
+  });
+
+  it('returns null when delta rounds to zero', () => {
+    expect(formatDeltaPing('15.02', '15.04')).toBeNull();
+  });
+
+  it('formats positive delta with plus sign', () => {
+    expect(formatDeltaPing('25.8', '15.2')).toBe('+10.6 ms');
+  });
+
+  it('formats negative delta with minus sign', () => {
+    expect(formatDeltaPing('10.2', '15.2')).toBe('-5.0 ms');
+  });
+});
+
+describe('setupStatTooltip()', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    container = document.createElement('div');
+    container.id = 'test-stat';
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('creates stat-tooltip element inside target', () => {
+    setupStatTooltip(container, () => ({ title: 'Test Title' }));
+    const tooltip = container.querySelector('.stat-tooltip');
+    expect(tooltip).not.toBeNull();
+  });
+
+  it('shows tooltip on mouseenter with title only when extra is absent', () => {
+    setupStatTooltip(container, () => ({ title: 'Idle Latency' }));
+    const tooltip = container.querySelector('.stat-tooltip') as HTMLElement;
+    expect(tooltip.classList.contains('visible')).toBe(false);
+
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(true);
+    expect(tooltip.textContent).toBe('Idle Latency');
+  });
+
+  it('displays extra line when string extra info is provided', () => {
+    setupStatTooltip(container, () => ({
+      extra: '+10.5 ms',
+      title: 'Download Latency',
+    }));
+    const tooltip = container.querySelector('.stat-tooltip') as HTMLElement;
+
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(true);
+    expect(tooltip.textContent).toContain('Download Latency');
+    expect(tooltip.textContent).toContain('+10.5 ms');
+  });
+
+  it('displays multiple rows when array extra info is provided', () => {
+    setupStatTooltip(container, () => ({
+      extra: ['Min: 10.0 ms', 'Avg: 15.0 ms', 'Max: 20.0 ms'],
+      title: 'Idle Latency',
+    }));
+    const tooltip = container.querySelector('.stat-tooltip') as HTMLElement;
+
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(true);
+    expect(tooltip.textContent).toContain('Idle Latency');
+    expect(tooltip.textContent).toContain('Min: 10.0 ms');
+    expect(tooltip.textContent).toContain('Avg: 15.0 ms');
+    expect(tooltip.textContent).toContain('Max: 20.0 ms');
+  });
+
+  it('hides extra line dynamically when extra becomes null', () => {
+    let extraValue: string | null = '+10.5 ms';
+    setupStatTooltip(container, () => ({
+      extra: extraValue,
+      title: 'Download Latency',
+    }));
+    const tooltip = container.querySelector('.stat-tooltip') as HTMLElement;
+
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.textContent).toContain('+10.5 ms');
+
+    extraValue = null;
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.textContent).toBe('Download Latency');
+  });
+
+  it('hides tooltip on mouseleave', () => {
+    setupStatTooltip(container, () => ({ title: 'Idle Latency' }));
+    const tooltip = container.querySelector('.stat-tooltip') as HTMLElement;
+
+    container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(true);
+
+    container.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    expect(tooltip.classList.contains('visible')).toBe(false);
+  });
+
+  it('removes event listeners and tooltip element on cleanup', () => {
+    const cleanup = setupStatTooltip(container, () => ({ title: 'Idle Latency' }));
+    expect(container.querySelector('.stat-tooltip')).not.toBeNull();
+
+    cleanup();
+    expect(container.querySelector('.stat-tooltip')).toBeNull();
   });
 });

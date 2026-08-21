@@ -79,10 +79,12 @@ export function applyTranslations(): void {
   });
 
   const startBtn = document.querySelector('#startStopBtn');
-  if (startBtn && !startBtn.classList.contains('running')) {
-    startBtn.textContent = localize('start');
-  } else if (startBtn) {
+  if (startBtn?.classList.contains('running')) {
     startBtn.textContent = localize('cancel');
+  } else if (startBtn?.classList.contains('done')) {
+    startBtn.textContent = localize('restart');
+  } else if (startBtn) {
+    startBtn.textContent = localize('start');
   }
 }
 

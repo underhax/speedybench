@@ -231,10 +231,9 @@
         <div class="ping_jitter_area">
           <fieldset
             class="stat-item"
+            id="stat-ping"
             data-i18n-aria="idle_ping"
-            aria-label="Idle Ping"
-            data-i18n-title="idle_ping"
-            title="Idle Ping"
+            aria-label="Idle Latency"
           >
             <span
               class="icon"
@@ -252,10 +251,9 @@
           </fieldset>
           <fieldset
             class="stat-item"
+            id="stat-dl-ping"
             data-i18n-aria="dl_ping"
             aria-label="Download Latency"
-            data-i18n-title="dl_ping"
-            title="Download Latency"
           >
             <span
               class="icon"
@@ -273,10 +271,9 @@
           </fieldset>
           <fieldset
             class="stat-item"
+            id="stat-ul-ping"
             data-i18n-aria="ul_ping"
             aria-label="Upload Latency"
-            data-i18n-title="ul_ping"
-            title="Upload Latency"
           >
             <span
               class="icon"
@@ -294,10 +291,9 @@
           </fieldset>
           <fieldset
             class="stat-item"
+            id="stat-jitter"
             data-i18n-aria="jitter"
             aria-label="Jitter"
-            data-i18n-title="jitter"
-            title="Jitter"
           >
             <span
               class="icon"
@@ -436,13 +432,29 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2 id="details-title">Details</h2>
-          <button
-            type="button"
-            class="close-btn"
-            id="details-close"
-          >
-            &times;
-          </button>
+          <div class="modal-header-actions">
+            <button
+              type="button"
+              class="icon-btn-ghost"
+              id="details-copy-btn"
+              data-i18n-aria="copy_tsv"
+              aria-label="Copy"
+              data-i18n-title="copy_tsv"
+              title="Copy"
+            >
+              <span
+                class="icon"
+                id="details-copy-icon"
+              ></span>
+            </button>
+            <button
+              type="button"
+              class="close-btn"
+              id="details-close"
+            >
+              &times;
+            </button>
+          </div>
         </div>
         <div class="modal-body details-body">
           <div class="details-table-wrapper">

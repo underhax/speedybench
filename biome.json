@@ -22,7 +22,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!dist", "!coverage", "!node_modules"]
+    "includes": ["frontend/**", "!**/dist", "!**/coverage", "!**/node_modules"]
   },
   "formatter": {
     "enabled": true,
@@ -173,11 +173,11 @@
     },
     {
       "includes": [
-        "**/*.config.ts",
-        "**/*.config.js",
-        "**/*.config.mts",
-        "**/vite.config.*",
-        "**/vitest.config.*"
+        "frontend/**/*.config.ts",
+        "frontend/**/*.config.js",
+        "frontend/**/*.config.mts",
+        "frontend/**/vite.config.*",
+        "frontend/**/vitest.config.*"
       ],
       "linter": {
         "rules": {
@@ -187,11 +187,11 @@
     },
     {
       "includes": [
-        "**/*.test.ts",
-        "**/*.test.tsx",
-        "**/*.spec.ts",
-        "**/tests/**",
-        "**/__tests__/**"
+        "frontend/**/*.test.ts",
+        "frontend/**/*.test.tsx",
+        "frontend/**/*.spec.ts",
+        "frontend/**/tests/**",
+        "frontend/**/__tests__/**"
       ],
       "linter": {
         "rules": {

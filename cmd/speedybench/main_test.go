@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -31,6 +32,170 @@ func (errReader) Read(_ []byte) (n int, err error) {
 }
 func (errReader) Close() error {
 	return errors.New("close error")
+}
+
+func TestCheckCommands(t *testing.T) {
+	tests := []struct {
+		mockUpdate func(ctx context.Context, client *http.Client, version string) error
+		name       string
+		wantOut    string
+		args       []string
+		wantErr    bool
+		wantHandle bool
+	}{
+		{
+			name:       "empty_args",
+			args:       []string{},
+			wantHandle: false,
+			wantErr:    false,
+		},
+		{
+			name:       "unknown_args",
+			args:       []string{"unknown"},
+			wantHandle: false,
+			wantErr:    false,
+		},
+		{
+			name:       "help_dash_h",
+			args:       []string{"-h"},
+			wantHandle: true,
+			wantOut:    "benchmark",
+			wantErr:    false,
+		},
+		{
+			name:       "help_double_dash",
+			args:       []string{"--help"},
+			wantHandle: true,
+			wantOut:    "benchmark",
+			wantErr:    false,
+		},
+		{
+			name:       "version_short_flag",
+			args:       []string{"-v"},
+			wantHandle: true,
+			wantOut:    Version,
+			wantErr:    false,
+		},
+		{
+			name:       "version_write_error",
+			args:       []string{"-version"},
+			wantHandle: true,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.mockUpdate != nil {
+				origUpdate := executeUpdate
+				executeUpdate = tt.mockUpdate
+				defer func() { executeUpdate = origUpdate }()
+			}
+
+			var out io.Writer = &bytes.Buffer{}
+			if tt.name == "version_write_error" {
+				out = mainErrWriter{}
+			}
+
+			handled, err := checkCommands(tt.args, out)
+
+			if handled != tt.wantHandle {
+				t.Errorf("expected handled to be %v, got %v", tt.wantHandle, handled)
+			}
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error, got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+			if buf, ok := out.(*bytes.Buffer); ok {
+				if tt.wantOut != "" && !bytes.Contains(buf.Bytes(), []byte(tt.wantOut)) {
+					t.Errorf("expected output to contain %q, got %q", tt.wantOut, buf.String())
+				}
+			}
+		})
+	}
+}
+
+func TestCheckCommands_Update(t *testing.T) {
+	updateTests := []struct {
+		mockUpdate func(ctx context.Context, client *http.Client, version string) error
+		name       string
+		wantErr    bool
+	}{
+		{
+			name: "success",
+			mockUpdate: func(_ context.Context, _ *http.Client, _ string) error {
+				return nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "error",
+			mockUpdate: func(_ context.Context, _ *http.Client, _ string) error {
+				return errors.New("update mock error")
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range updateTests {
+		t.Run(tt.name, func(t *testing.T) {
+			origUpdate := executeUpdate
+			executeUpdate = tt.mockUpdate
+			defer func() { executeUpdate = origUpdate }()
+
+			var buf bytes.Buffer
+			handled, err := checkCommands([]string{"update"}, &buf)
+			if !handled {
+				t.Errorf("expected update to be handled")
+			}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkCommands error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+type mainErrWriter struct{}
+
+func (mainErrWriter) Write(_ []byte) (int, error) {
+	return 0, errors.New("write error")
+}
+
+func TestRunCommandsBypassEnv(t *testing.T) {
+	for _, cmd := range []string{"help", "version"} {
+		t.Run(cmd, func(t *testing.T) {
+			err := run([]string{cmd}, func(_ string) string {
+				return "INVALID_GARBAGE_PORT"
+			})
+			if err != nil {
+				t.Fatalf("expected command %q to succeed and bypass env, got %v", cmd, err)
+			}
+		})
+	}
+}
+
+func TestDefaultUpdateFunc(t *testing.T) {
+	t.Run("dev", func(t *testing.T) {
+		err := defaultUpdate(context.Background(), http.DefaultClient, "dev")
+		if err != nil {
+			t.Fatalf("expected dev update to be nil, got %v", err)
+		}
+	})
+
+	t.Run("error", func(t *testing.T) {
+		client := &http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+					return nil, errors.New("mock network error")
+				},
+			},
+		}
+		err := defaultUpdate(context.Background(), client, "v1.0.0")
+		if err == nil || !strings.Contains(err.Error(), "updater:") {
+			t.Fatalf("expected updater error, got %v", err)
+		}
+	})
 }
 
 func TestRunHealthcheck(t *testing.T) {
@@ -135,6 +300,11 @@ func TestRun(t *testing.T) {
 		sigs    []os.Signal
 		wantErr bool
 	}{
+		{
+			name:    "help_flag_via_args",
+			args:    []string{"-h"},
+			wantErr: false,
+		},
 		{
 			name:    "invalid_flag",
 			args:    []string{"-invalid-flag"},
@@ -329,6 +499,7 @@ func TestParseConfig(t *testing.T) {
 		debugEnv     string
 		maxConnsEnv  string
 		wantHost     string
+		args         []string
 		wantMaxConns int
 		wantDocker   bool
 		wantDebug    bool
@@ -416,11 +587,20 @@ func TestParseConfig(t *testing.T) {
 			wantMaxConns: 100,
 			wantError:    true,
 		},
+		{
+			name:      "flag_help",
+			args:      []string{"-h"},
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := parseConfig([]string{}, func(s string) string {
+			args := tt.args
+			if args == nil {
+				args = []string{}
+			}
+			cfg, err := parseConfig(args, func(s string) string {
 				if s == "SPEEDYBENCH_HOST" {
 					return tt.hostEnv
 				}

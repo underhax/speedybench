@@ -417,6 +417,14 @@ func TestHandleConfig(t *testing.T) {
 	}
 }
 
+func TestHandleConfigWriteError(t *testing.T) {
+	h := NewHandler(fstest.MapFS{}, 100)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/config", http.NoBody)
+	ew := &errWriter{}
+	h.handleConfig(ew, req)
+	t.Log("handleConfig returned after write error")
+}
+
 func TestHandleCompressedAsset(t *testing.T) {
 	fsys := fstest.MapFS{
 		"assets/index.js":    {Data: []byte("original-js-content")},

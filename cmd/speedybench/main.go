@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -19,12 +20,23 @@ import (
 
 	"github.com/underhax/speedybench/internal/api"
 	"github.com/underhax/speedybench/internal/assets"
+	"github.com/underhax/speedybench/internal/updater"
 )
 
 // Version indicates the current build version, overwritten during compilation.
 var Version = "dev"
 
+func defaultUpdate(ctx context.Context, client *http.Client, currentVersion string) error {
+	if err := updater.Update(ctx, client, currentVersion); err != nil {
+		return fmt.Errorf("updater: %w", err)
+	}
+	return nil
+}
+
+var executeUpdate = defaultUpdate
 var executeHealthcheck = runHealthcheck
+var cleanupWindows = updater.CleanupWindowsOldFiles
+var stdout io.Writer = os.Stdout
 
 func defaultSubFS(fsys fs.FS, dir string) (fs.FS, error) {
 	sub, err := fs.Sub(fsys, dir)
@@ -54,6 +66,7 @@ var runFunc = run
 var logFatalf = log.Fatalf
 
 func main() {
+	cleanupWindows()
 	if err := runFunc(os.Args[1:], os.Getenv, os.Interrupt, syscall.SIGTERM); err != nil {
 		logFatalf("Fatal error: %v", err)
 	}
@@ -66,6 +79,32 @@ type appConfig struct {
 	inDocker    bool
 	debug       bool
 	maxConns    int
+}
+
+func checkCommands(args []string, out io.Writer) (bool, error) {
+	if len(args) == 0 {
+		return false, nil
+	}
+
+	switch args[0] {
+	case "update":
+		ctx, cancel := withTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := executeUpdate(ctx, http.DefaultClient, Version); err != nil {
+			return true, fmt.Errorf("update failed: %w", err)
+		}
+		return true, nil
+	case "help", "-h", "--help", "-help":
+		printUsage(out)
+		return true, nil
+	case "version", "-v", "--version", "-version":
+		if _, err := fmt.Fprintln(out, Version); err != nil {
+			return true, fmt.Errorf("print version: %w", err)
+		}
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func parseOptionalBool(getenv func(string) string, name string) (bool, error) {
@@ -81,6 +120,33 @@ func parseOptionalBool(getenv func(string) string, name string) (bool, error) {
 	return parsed, nil
 }
 
+func parseHost(getenv func(string) string) (string, error) {
+	host := getenv("SPEEDYBENCH_HOST")
+	switch host {
+	case "":
+		return "127.0.0.1", nil
+	case "all":
+		return "", nil
+	default:
+		if net.ParseIP(host) == nil {
+			return "", errors.New("invalid SPEEDYBENCH_HOST - must be 'all' or a valid IP address")
+		}
+		return host, nil
+	}
+}
+
+func parsePort(getenv func(string) string) (string, error) {
+	port := getenv("SPEEDYBENCH_PORT")
+	if port == "" {
+		port = "8989"
+	}
+	portNum, portErr := strconv.Atoi(port)
+	if portErr != nil || portNum <= 1024 || portNum > 65535 {
+		return "", errors.New("invalid SPEEDYBENCH_PORT - must be a number between 1025 and 65535")
+	}
+	return port, nil
+}
+
 func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err error) {
 	flags := flag.NewFlagSet("speedybench", flag.ContinueOnError)
 	hc := flags.Bool("healthcheck", false, "Run healthcheck against the local server")
@@ -90,25 +156,14 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 	}
 	cfg.healthcheck = *hc
 
-	cfg.port = getenv("SPEEDYBENCH_PORT")
-	if cfg.port == "" {
-		cfg.port = "8989"
-	}
-	portNum, portErr := strconv.Atoi(cfg.port)
-	if portErr != nil || portNum <= 1024 || portNum > 65535 {
-		return cfg, errors.New("invalid SPEEDYBENCH_PORT - must be a number between 1025 and 65535")
+	cfg.port, err = parsePort(getenv)
+	if err != nil {
+		return cfg, err
 	}
 
-	cfg.host = getenv("SPEEDYBENCH_HOST")
-	switch cfg.host {
-	case "":
-		cfg.host = "127.0.0.1"
-	case "all":
-		cfg.host = ""
-	default:
-		if net.ParseIP(cfg.host) == nil {
-			return cfg, errors.New("invalid SPEEDYBENCH_HOST - must be 'all' or a valid IP address")
-		}
+	cfg.host, err = parseHost(getenv)
+	if err != nil {
+		return cfg, err
 	}
 
 	inDocker, err := parseOptionalBool(getenv, "SPEEDYBENCH_IN_DOCKER")
@@ -137,6 +192,10 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 }
 
 func run(args []string, getenv func(string) string, sigs ...os.Signal) error {
+	if handled, err := checkCommands(args, stdout); handled {
+		return err
+	}
+
 	cfg, err := parseConfig(args, getenv)
 	if err != nil {
 		return err

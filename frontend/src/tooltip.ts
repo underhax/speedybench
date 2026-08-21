@@ -100,3 +100,82 @@ export function setupChartTooltip(
   svgEl.addEventListener('mouseleave', onLeave);
   testArea.addEventListener('mouseleave', onLeave);
 }
+
+export function formatIdlePingStats(min: string, avg: string, max: string): string[] | null {
+  if (!min || !avg || !max) {
+    return null;
+  }
+  const ms = localize('unit_ms');
+  return [
+    `${localize('min')}: ${min} ${ms}`,
+    `${localize('avg')}: ${avg} ${ms}`,
+    `${localize('max')}: ${max} ${ms}`,
+  ];
+}
+
+export function formatDeltaPing(loadedPingStr: string, idlePingStr: string): string | null {
+  const loaded = Number.parseFloat(loadedPingStr);
+  const idle = Number.parseFloat(idlePingStr);
+  if (Number.isNaN(loaded) || Number.isNaN(idle) || loaded <= 0 || idle <= 0) {
+    return null;
+  }
+  const delta = loaded - idle;
+  const rounded = Number.parseFloat(delta.toFixed(1));
+  if (rounded === 0) {
+    return null;
+  }
+  const sign = rounded > 0 ? '+' : '';
+  return `${sign}${delta.toFixed(1)} ${localize('unit_ms')}`;
+}
+
+export function setupStatTooltip(
+  el: HTMLElement,
+  getContent: () => { title: string; extra?: string | string[] | null },
+): () => void {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'stat-tooltip';
+  const titleEl = document.createElement('div');
+  const extraEl = document.createElement('div');
+  tooltip.appendChild(titleEl);
+  tooltip.appendChild(extraEl);
+  el.appendChild(tooltip);
+
+  const update = (): void => {
+    const { title, extra } = getContent();
+    titleEl.textContent = title;
+    if (extra) {
+      extraEl.textContent = '';
+      if (Array.isArray(extra)) {
+        for (const item of extra) {
+          const row = document.createElement('div');
+          row.textContent = item;
+          extraEl.appendChild(row);
+        }
+      } else {
+        extraEl.textContent = extra;
+      }
+      extraEl.style.display = '';
+    } else {
+      extraEl.textContent = '';
+      extraEl.style.display = 'none';
+    }
+  };
+
+  const onEnter = (): void => {
+    update();
+    tooltip.classList.add('visible');
+  };
+
+  const onLeave = (): void => {
+    tooltip.classList.remove('visible');
+  };
+
+  el.addEventListener('mouseenter', onEnter);
+  el.addEventListener('mouseleave', onLeave);
+
+  return (): void => {
+    el.removeEventListener('mouseenter', onEnter);
+    el.removeEventListener('mouseleave', onLeave);
+    tooltip.remove();
+  };
+}
