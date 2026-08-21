@@ -559,8 +559,8 @@ func TestParseConfig(t *testing.T) {
 		},
 		{
 			name:         "valid_max_conns_edge",
-			maxConnsEnv:  "6",
-			wantMaxConns: 6,
+			maxConnsEnv:  "5",
+			wantMaxConns: 5,
 			wantError:    false,
 		},
 		{
@@ -571,7 +571,7 @@ func TestParseConfig(t *testing.T) {
 		},
 		{
 			name:         "invalid_max_conns_under_limit",
-			maxConnsEnv:  "5",
+			maxConnsEnv:  "4",
 			wantMaxConns: 100,
 			wantError:    true,
 		},

@@ -25,7 +25,8 @@ describe('SpeedyBenchWorker', () => {
         ms === 260 ||
         ms === 300 ||
         ms === 400 ||
-        ms === 800
+        ms === 800 ||
+        ms === 1000
       ) {
         return originalSetTimeout(cb, 1);
       }

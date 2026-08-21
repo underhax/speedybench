@@ -10,7 +10,7 @@ self.onmessage = async (e: MessageEvent): Promise<void> => {
       calcMethod = 'peak',
       debug = false,
       sizeMB = 200,
-      threads = 4,
+      threads = 3,
       timeoutSec = 15,
     } = e.data;
     setDebugEnabled(debug === true);
@@ -18,9 +18,11 @@ self.onmessage = async (e: MessageEvent): Promise<void> => {
     await runPingTest(base);
 
     self.postMessage({ type: 'status', value: 'downloading' });
+    await new Promise((resolve) => setTimeout(resolve, 800));
     await runDownloadTest(base, sizeMB, timeoutSec, threads, calcMethod);
 
     self.postMessage({ type: 'status', value: 'uploading' });
+    await new Promise((resolve) => setTimeout(resolve, 800));
     await runUploadTest(base, sizeMB, timeoutSec, threads, calcMethod);
 
     self.postMessage({ type: 'status', value: 'done' });

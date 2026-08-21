@@ -431,24 +431,77 @@ circle.chart-dot.visible[data-color='--ul-color'] {
 
 #startStopBtn {
   box-sizing: border-box;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 4em;
   margin: 0;
   font-weight: bold;
-  line-height: 3em;
+  line-height: 1;
   color: var(--btn-text);
   text-transform: uppercase;
   cursor: pointer;
   background-color: var(--btn-bg);
   border: 0.5em solid var(--border-color);
   border-radius: 0;
-  transition: all 0.3s;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+#startStopBtn .btn-text {
+  display: inline-block;
+  pointer-events: none;
+}
+
+#startStopBtn.running {
+  animation: btn-fade-running 1.5s ease-out;
+}
+
+#startStopBtn.done .btn-text {
+  animation: btn-fade-done 0.8s ease-out;
+}
+
+#startStopBtn.reset {
+  animation: btn-fade-reset 1.5s ease-out;
+}
+
+@keyframes btn-fade-running {
+  from {
+    opacity: 0.8;
+    transform: translateY(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes btn-fade-done {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes btn-fade-reset {
+  from {
+    opacity: 0.8;
+    transform: translateY(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 #startStopBtn:hover {
   background-color: var(--btn-hover-bg);
-  transition: all 0.7s ease-in;
+  transition: background-color 0.7s ease-in;
 }
 
 #test {
@@ -482,6 +535,7 @@ div.meterText {
   font-size: 4.5em;
   font-weight: lighter;
   pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 
 .subTextWrapper {
@@ -524,6 +578,19 @@ div.meterText:empty:before,
 span.meterText:empty:before {
   color: var(--empty-meter);
   content: '0.00';
+  transition:
+    color 0.8s ease,
+    opacity 0.8s ease;
+}
+
+#dlText.active:empty:before {
+  color: var(--dl-color);
+  opacity: 0.85;
+}
+
+#ulText.active:empty:before {
+  color: var(--ul-color);
+  opacity: 0.85;
 }
 
 div.testGroup {
@@ -572,6 +639,42 @@ div.testGroup {
   display: inline-flex;
   align-items: center;
   color: var(--ping-color);
+}
+
+.testArea .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.testArea .icon.pulsing {
+  animation: icon-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #startStopBtn.running .btn-text,
+  #startStopBtn.done .btn-text,
+  #startStopBtn.reset .btn-text,
+  .testArea .icon.pulsing {
+    opacity: 0.9;
+    animation: none;
+  }
 }
 
 .testArea .icon#download-icon {

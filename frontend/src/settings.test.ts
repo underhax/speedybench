@@ -81,18 +81,18 @@ describe('Settings', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    currentSettings.threads = 4;
+    currentSettings.threads = 3;
     await initServerInfo();
     expect(fetchMock).toHaveBeenCalledWith('./api/cpu');
-    expect(serverThreads).toBe(6);
-    expect(currentSettings.threads).toBe(6);
+    expect(serverThreads).toBe(5);
+    expect(currentSettings.threads).toBe(5);
 
     fetchMock.mockResolvedValueOnce({
       text: vi.fn().mockResolvedValue('2'),
     });
     await initServerInfo();
-    expect(serverThreads).toBe(4);
-    expect(currentSettings.threads).toBe(4);
+    expect(serverThreads).toBe(3);
+    expect(currentSettings.threads).toBe(3);
 
     currentSettings.threads = 1;
     fetchMock.mockResolvedValueOnce({

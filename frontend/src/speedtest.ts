@@ -121,6 +121,10 @@ export function setupSpeedtest(): SpeedtestController {
     });
     document.querySelector('#dl-info-btn')?.classList.add('hidden');
     document.querySelector('#ul-info-btn')?.classList.add('hidden');
+    document.querySelector('#download-icon')?.classList.remove('pulsing');
+    document.querySelector('#upload-icon')?.classList.remove('pulsing');
+    document.querySelector('#dlText')?.classList.remove('active');
+    document.querySelector('#ulText')?.classList.remove('active');
     dlSamples = [];
     ulSamples = [];
     dlChartSamples = [];
@@ -133,17 +137,17 @@ export function setupSpeedtest(): SpeedtestController {
     idlePingVal = '';
     dlPingVal = '';
     ulPingVal = '';
-    startBtn?.classList.remove('done');
   };
 
   const stopTest = (): void => {
     worker?.terminate();
     worker = null;
     isRunning = false;
+    initUI();
     startBtn?.classList.remove('running');
     startBtn?.classList.remove('done');
+    startBtn?.classList.add('reset');
     applyTranslations();
-    initUI();
   };
 
   const handlePing = (
@@ -279,9 +283,25 @@ export function setupSpeedtest(): SpeedtestController {
         handleUlDone(value, bytes, timeMs, samples, chartSamples, loadedPing);
         break;
       case 'status': {
-        if (value === 'done') {
+        const dlIcon = document.querySelector('#download-icon');
+        const ulIcon = document.querySelector('#upload-icon');
+        const dlText = document.querySelector('#dlText');
+        const ulText = document.querySelector('#ulText');
+        dlIcon?.classList.remove('pulsing');
+        ulIcon?.classList.remove('pulsing');
+        dlText?.classList.remove('active');
+        ulText?.classList.remove('active');
+
+        if (value === 'downloading') {
+          dlIcon?.classList.add('pulsing');
+          dlText?.classList.add('active');
+        } else if (value === 'uploading') {
+          ulIcon?.classList.add('pulsing');
+          ulText?.classList.add('active');
+        } else if (value === 'done') {
           isRunning = false;
           startBtn?.classList.remove('running');
+          startBtn?.classList.remove('reset');
           startBtn?.classList.add('done');
           applyTranslations();
           worker?.terminate();
@@ -299,10 +319,11 @@ export function setupSpeedtest(): SpeedtestController {
     }
 
     isRunning = true;
+    initUI();
     startBtn.classList.remove('done');
+    startBtn.classList.remove('reset');
     startBtn.classList.add('running');
     applyTranslations();
-    initUI();
 
     await debugConfigPromise;
     if (!isRunning) return;

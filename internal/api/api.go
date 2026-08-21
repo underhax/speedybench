@@ -66,9 +66,9 @@ func newHandler(assetFS fs.FS, maxGlobalConns int, debugEnabled bool) *Handler {
 		}
 	}
 
-	maxPerIP := 6
+	maxPerIP := 5
 	if getNumCPU() <= 4 {
-		maxPerIP = 4
+		maxPerIP = 3
 	}
 
 	return &Handler{

@@ -22,7 +22,7 @@ The backend is built with Go for maximum performance and minimal resource footpr
 ## Features
 
 - **Accurate Metrics**: Measures ping, jitter, download, and upload bandwidth.
-- **Interactive Visualizations**: Includes real-time SVG charts and detailed statistical tables (accessible via the info icon) for in-depth analysis of download and upload phases.
+- **Interactive Visualizations**: Includes real-time SVG charts and detailed statistical tables (accessible via the info icon) for in-depth analysis of download and upload phases, with quick one-click copying of measurements in TSV format.
 - **Lightweight**: Distributed as a single, self-contained binary with embedded frontend assets.
 - **Self-Hosted**: Perfect for home labs, private networks, or public servers to test routing and connectivity.
 - **Cross-Platform**: Runs seamlessly on Linux, macOS, and Windows.
@@ -51,7 +51,7 @@ SpeedyBench can be configured using the following environment variables:
 
 - `SPEEDYBENCH_HOST`: If not provided, the server listens on localhost (`127.0.0.1`) by default for security reasons. If set to `all` (equivalent to `0.0.0.0`), it will listen on all available network interfaces. Alternatively, you can explicitly specify an IP address to bind to a specific interface.
 - `SPEEDYBENCH_PORT`: The port for the web server to listen on (default: `8989`). For security reasons, the port must be strictly within the restricted range of `1025` to `65535` to prevent binding to privileged ports. *(Note: When using Docker, you do not need to change this variable; simply map your desired host port to the container's default `8989` port, e.g., `-p 9090:8989`).*
-- `SPEEDYBENCH_MAX_CONNS`: The maximum number of concurrent speed test connections allowed globally (default: `100`). This is a DoS protection feature to prevent server resource exhaustion. If provided, it must be an integer between `6` and `65535`.
+- `SPEEDYBENCH_MAX_CONNS`: The maximum number of concurrent speed test connections allowed globally (default: `100`). This is a DoS protection feature to prevent server resource exhaustion. If provided, it must be an integer between `5` and `65535`.
 
 <details>
 <summary><b>View execution examples</b></summary>
@@ -141,7 +141,7 @@ SpeedyBench offers several customizable parameters directly from the web interfa
   > **Note**: The active test phase completes automatically as soon as either the Data Size or the Time Limit is reached, whichever occurs first.
 - **Calculation Method**: Toggles between Cumulative Average and Peak Sustained. **Cumulative Average** calculates the total data transferred over the total time elapsed. **Peak Sustained** filters out the most unstable portions of the test (dropping the bottom 30% and top 10% of samples) to provide a more accurate representation of your stable sustained bandwidth.
 - **Connections**: Toggles between Single and Multi-stream modes. **Multi-stream** opens multiple concurrent HTTP connections to fully saturate available bandwidth, which is ideal for testing maximum throughput. **Single-stream** evaluates the throughput and stability of a single TCP connection.
-  > **Note**: The exact number of concurrent threads in Multi-stream mode is automatically determined by the number of available CPU cores on the backend server (capped at `4` threads for servers with 4 cores or fewer, and `6` threads for servers with more than 4 cores).
+  > **Note**: The exact number of concurrent threads in Multi-stream mode is automatically determined by the number of available CPU cores on the backend server (capped at `3` threads for servers with 4 cores or fewer, and `5` threads for servers with more than 4 cores).
 - **Save in browser**: If enabled, your configuration preferences are persisted across browser sessions using `localStorage`. If disabled, they are stored temporarily in `sessionStorage` and reset when the tab is closed.
 
 </details>

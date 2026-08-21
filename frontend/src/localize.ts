@@ -79,12 +79,21 @@ export function applyTranslations(): void {
   });
 
   const startBtn = document.querySelector('#startStopBtn');
-  if (startBtn?.classList.contains('running')) {
-    startBtn.textContent = localize('cancel');
-  } else if (startBtn?.classList.contains('done')) {
-    startBtn.textContent = localize('restart');
-  } else if (startBtn) {
-    startBtn.textContent = localize('start');
+  if (startBtn) {
+    let span = startBtn.querySelector('.btn-text');
+    if (!span) {
+      span = document.createElement('span');
+      span.className = 'btn-text';
+      startBtn.textContent = '';
+      startBtn.appendChild(span);
+    }
+    if (startBtn.classList.contains('running')) {
+      span.textContent = localize('cancel');
+    } else if (startBtn.classList.contains('done')) {
+      span.textContent = localize('restart');
+    } else {
+      span.textContent = localize('start');
+    }
   }
 }
 

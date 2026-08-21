@@ -10,11 +10,11 @@ export const defaultSettings: Settings = {
   calcMethod: 'peak',
   save: false,
   size: 200,
-  threads: 4,
+  threads: 3,
   time: 15,
 };
 
-export let serverThreads = 4;
+export let serverThreads = 3;
 export let currentSettings: Settings = { ...defaultSettings };
 
 export function loadSettings(): void {
@@ -51,7 +51,7 @@ export function initServerInfo(): Promise<void> {
     .then((text) => {
       const cpus = Number.parseInt(text, 10);
       if (!Number.isNaN(cpus) && cpus > 0) {
-        serverThreads = cpus <= 4 ? 4 : 6;
+        serverThreads = cpus <= 4 ? 3 : 5;
         if (currentSettings.threads > 1) {
           currentSettings.threads = serverThreads;
         }

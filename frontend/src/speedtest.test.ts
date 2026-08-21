@@ -41,6 +41,7 @@ describe('Speedtest', () => {
     document.body.innerHTML = `
       <div id="startStopBtn"></div>
       <div class="testArea">
+        <span id="download-icon" class="icon"></span>
         <div id="dlText"></div>
         <div id="dlSubText"></div>
         <div id="dlPingText"></div>
@@ -48,6 +49,7 @@ describe('Speedtest', () => {
         <button id="dl-info-btn" class="hidden"></button>
       </div>
       <div class="testArea">
+        <span id="upload-icon" class="icon"></span>
         <div id="ulText"></div>
         <div id="ulSubText"></div>
         <div id="ulPingText"></div>
@@ -274,9 +276,37 @@ describe('Speedtest', () => {
     ulHitArea.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
   });
 
-  it('covers non-done status message and programmatic stopTest', (): void => {
+  it('covers non-done status message and programmatic stopTest', async (): Promise<void> => {
     const controller = setupSpeedtest();
+    const startBtn = document.querySelector('#startStopBtn') as HTMLElement;
+    startBtn.click();
+    await vi.waitFor(() => {
+      expect(mockWorkerInstance.postMessage).toHaveBeenCalled();
+    });
+
+    const dlIcon = document.querySelector('#download-icon');
+    const ulIcon = document.querySelector('#upload-icon');
+    const dlText = document.querySelector('#dlText');
+    const ulText = document.querySelector('#ulText');
+
+    emitWorkerMessage({ type: 'status', value: 'downloading' });
+    expect(dlIcon?.classList.contains('pulsing')).toBe(true);
+    expect(ulIcon?.classList.contains('pulsing')).toBe(false);
+    expect(dlText?.classList.contains('active')).toBe(true);
+    expect(ulText?.classList.contains('active')).toBe(false);
+
+    emitWorkerMessage({ type: 'status', value: 'uploading' });
+    expect(dlIcon?.classList.contains('pulsing')).toBe(false);
+    expect(ulIcon?.classList.contains('pulsing')).toBe(true);
+    expect(dlText?.classList.contains('active')).toBe(false);
+    expect(ulText?.classList.contains('active')).toBe(true);
+
     emitWorkerMessage({ type: 'status', value: 'running' });
+    expect(dlIcon?.classList.contains('pulsing')).toBe(false);
+    expect(ulIcon?.classList.contains('pulsing')).toBe(false);
+    expect(dlText?.classList.contains('active')).toBe(false);
+    expect(ulText?.classList.contains('active')).toBe(false);
+
     expect(controller.stopTest).toBeDefined();
     controller.stopTest();
   });

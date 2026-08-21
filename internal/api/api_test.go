@@ -627,13 +627,13 @@ func TestNewHandler_NumCPU(t *testing.T) {
 
 	getNumCPU = func() int { return 2 }
 	h := NewHandler(fstest.MapFS{}, 100)
-	if h.maxPerIP != 4 {
-		t.Errorf("expected maxPerIP 4, got %d", h.maxPerIP)
+	if h.maxPerIP != 3 {
+		t.Errorf("expected maxPerIP 3, got %d", h.maxPerIP)
 	}
 
 	getNumCPU = func() int { return 8 }
 	h = NewHandler(fstest.MapFS{}, 100)
-	if h.maxPerIP != 6 {
-		t.Errorf("expected maxPerIP 6, got %d", h.maxPerIP)
+	if h.maxPerIP != 5 {
+		t.Errorf("expected maxPerIP 5, got %d", h.maxPerIP)
 	}
 }

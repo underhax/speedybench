@@ -66,7 +66,21 @@ The project enforces strict code quality standards utilizing multiple tools (e.g
    docker compose -f docker/docker-compose.dev.yaml config -q
    ```
 
-4. **Project Verification:**
+4. **Code Coverage:**
+   To execute the test suites and generate coverage reports for both frontend and backend:
+   ```sh
+   make coverage
+   ```
+   Alternatively, you can run coverage individually for each component:
+   ```sh
+   # Frontend Vitest coverage:
+   make frontend-coverage
+
+   # Backend Go test coverage:
+   make backend-coverage
+   ```
+
+5. **Project Verification:**
    Prior to submitting any pull request, you must execute the primary validation and test suite for both the frontend and backend:
    ```sh
    make verify
@@ -184,6 +198,7 @@ The Go backend utilizes the `embed` package to serve compiled frontend assets di
 | `make backend-check` | Validates Go code formatting, executes `golangci-lint`, and verifies compilation. |
 | `make backend-test` | Executes the Go backend test suite with race condition detection enabled. |
 | `make backend-coverage` | Executes the Go backend test suite and generates a coverage report. |
+| `make coverage` | Sequentially executes frontend and backend coverage targets and generates comprehensive reports. |
 | `make backend-vulncheck` | Analyzes Go source code and binaries for known vulnerabilities using `govulncheck`. |
 | `make docker-lint` | Lints the `Dockerfile` via `hadolint`. |
 | `make security-trivy` | Scans the repository for critical and high severity vulnerabilities using `trivy`. |

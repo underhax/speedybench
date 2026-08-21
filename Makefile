@@ -1,6 +1,6 @@
 VERSION ?= dev
 
-.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify build
+.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify coverage build
 
 frontend-install:
 	npm --prefix frontend ci --ignore-scripts
@@ -52,6 +52,8 @@ security-trivy:
 	trivy fs --severity CRITICAL,HIGH .
 
 verify: frontend-check frontend-biome frontend-test backend-check backend-test backend-vulncheck security-trivy docker-lint
+
+coverage: frontend-coverage backend-coverage
 
 build:
 	npm --prefix frontend ci --ignore-scripts

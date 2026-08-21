@@ -182,8 +182,8 @@ func parseConfig(args []string, getenv func(string) string) (cfg appConfig, err 
 	maxConnsStr := getenv("SPEEDYBENCH_MAX_CONNS")
 	if maxConnsStr != "" {
 		maxConns, parseErr := strconv.Atoi(maxConnsStr)
-		if parseErr != nil || maxConns < 6 || maxConns > 65535 {
-			return cfg, errors.New("invalid SPEEDYBENCH_MAX_CONNS - must be an integer between 6 and 65535")
+		if parseErr != nil || maxConns < 5 || maxConns > 65535 {
+			return cfg, errors.New("invalid SPEEDYBENCH_MAX_CONNS - must be an integer between 5 and 65535")
 		}
 		cfg.maxConns = maxConns
 	}
