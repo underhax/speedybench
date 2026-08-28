@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
-    "happy-dom": "^20.11.2",
+    "happy-dom": "^20.11.6",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vite-plugin-compression2": "^2.5.3",
