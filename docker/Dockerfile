@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:26-alpine3.24@sha256:b4fea132199070b0c8ea9ac66f363fe2cd6d1e4f994e61d8c87976c2157a1b8a AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:26-alpine3.24@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS frontend-builder
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json frontend/
 RUN npm --prefix frontend ci --ignore-scripts
