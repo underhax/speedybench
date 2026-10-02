@@ -5,7 +5,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vite-plugin-compression2": "^2.5.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   },
   "name": "speedybench-frontend",
   "private": true,
