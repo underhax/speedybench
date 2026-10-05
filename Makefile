@@ -1,6 +1,6 @@
 VERSION ?= dev
 
-.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage frontend-outdated backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify coverage build
+.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage frontend-outdated frontend-outdated-all backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify coverage build
 
 frontend-install:
 	npm --prefix frontend ci --ignore-scripts
@@ -30,8 +30,11 @@ frontend-coverage:
 	npm --prefix frontend ci --ignore-scripts
 	npm --prefix frontend run coverage
 
-frontend-outdated:
+frontend-outdated-all:
 	npm --prefix frontend outdated --all
+
+frontend-outdated:
+	npm --prefix frontend outdated
 
 backend-check:
 	@test -z "$$(gofmt -s -l .)" || (echo "Unformatted files found. Run 'gofmt -s -w .' to fix them." && false)
@@ -62,3 +65,9 @@ build:
 	npm --prefix frontend ci --ignore-scripts
 	npm --prefix frontend run build
 	go build -ldflags "-s -w -X main.Version=$(VERSION)" -o speedybench ./cmd/speedybench
+
+clean:
+	rm -rf *.out frontend/coverage
+
+clean-all: clean
+	rm -rf frontend/node_modules speedybench
