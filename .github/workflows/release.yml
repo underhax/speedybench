@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
           cache: npm
@@ -36,27 +36,27 @@ jobs:
       - name: Build and Archive
         run: |
           mkdir -p release_assets
-          
+
           TARGETS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
-          
+
           for target in $TARGETS; do
             GOOS=${target%/*}
             GOARCH=${target#*/}
-            
+
             BUILD_DIR="build_${GOOS}_${GOARCH}"
             mkdir -p "$BUILD_DIR"
-            
+
             cp LICENSE "$BUILD_DIR/"
             cp README.md "$BUILD_DIR/"
-            
+
             OUTPUT_NAME="speedybench"
             if [ "$GOOS" = "windows" ]; then
               OUTPUT_NAME="speedybench.exe"
             fi
-            
+
             echo "Building $OUTPUT_NAME for $GOOS/$GOARCH..."
             CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath -ldflags "-s -w -X 'main.Version=${{ github.ref_name }}'" -o "${BUILD_DIR}/${OUTPUT_NAME}" ./cmd/speedybench
-            
+
             cd "$BUILD_DIR"
             if [ "$GOOS" = "windows" ]; then
               zip -r "../release_assets/speedybench-${GOOS}-${GOARCH}.zip" ./*
