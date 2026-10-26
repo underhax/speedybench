@@ -1,6 +1,6 @@
 VERSION ?= dev
 
-.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-test frontend-coverage frontend-outdated frontend-outdated-all backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy verify coverage build
+.PHONY: frontend-install frontend-check frontend-biome frontend-biome-fix frontend-biome-migrate frontend-test frontend-coverage frontend-outdated frontend-outdated-all backend-check backend-test backend-coverage backend-vulncheck docker-lint security-trivy secrets-scan verify coverage build
 
 frontend-install:
 	npm --prefix frontend ci --ignore-scripts
@@ -11,6 +11,9 @@ frontend-biome:
 frontend-biome-fix:
 	biome check --write frontend/src
 	biome check --write frontend/index.html
+
+frontend-biome-migrate:
+	biome migrate --write
 
 frontend-check:
 	npm --prefix frontend ci --ignore-scripts
@@ -57,7 +60,10 @@ docker-lint:
 security-trivy:
 	trivy fs --severity CRITICAL,HIGH .
 
-verify: frontend-check frontend-biome frontend-test backend-check backend-test backend-vulncheck security-trivy docker-lint
+secrets-scan:
+	gitleaks detect --source . --no-git --no-color
+
+verify: frontend-check frontend-biome frontend-test backend-check backend-test backend-vulncheck security-trivy docker-lint secrets-scan
 
 coverage: frontend-coverage backend-coverage
 

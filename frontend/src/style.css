@@ -658,12 +658,12 @@ div.testGroup {
 @keyframes icon-pulse {
   0%,
   100% {
-    transform: scale(1);
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    transform: scale(0.9);
     opacity: 0.9;
+    transform: scale(0.9);
   }
 }
 
