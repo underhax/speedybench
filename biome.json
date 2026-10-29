@@ -1,218 +1,218 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
-	"assist": {
-		"actions": {
-			"source": {
-				"organizeImports": "on",
-				"useSortedKeys": "on",
-				"useSortedProperties": "on"
-			}
-		},
-		"enabled": true
-	},
-	"css": {
-		"formatter": {
-			"enabled": true,
-			"indentStyle": "space",
-			"indentWidth": 2,
-			"lineEnding": "lf",
-			"lineWidth": 100,
-			"quoteStyle": "single"
-		}
-	},
-	"files": {
-		"ignoreUnknown": false,
-		"includes": ["frontend/**", "!**/dist", "!**/coverage", "!**/node_modules"]
-	},
-	"formatter": {
-		"enabled": true,
-		"indentStyle": "space",
-		"indentWidth": 2,
-		"lineEnding": "lf",
-		"lineWidth": 100
-	},
-	"html": {
-		"formatter": {
-			"attributePosition": "multiline",
-			"enabled": true,
-			"indentStyle": "space",
-			"indentWidth": 2,
-			"lineEnding": "lf",
-			"lineWidth": 100
-		}
-	},
-	"javascript": {
-		"formatter": {
-			"arrowParentheses": "always",
-			"bracketSpacing": true,
-			"quoteStyle": "single",
-			"semicolons": "always",
-			"trailingCommas": "all"
-		}
-	},
-	"linter": {
-		"domains": {
-			"project": "all",
-			"test": "all",
-			"types": "all"
-		},
-		"enabled": true,
-		"rules": {
-			"complexity": {
-				"noExcessiveCognitiveComplexity": {
-					"level": "error",
-					"options": { "maxAllowedComplexity": 15 }
-				},
-				"noExcessiveNestedCallbacks": "error",
-				"noExcessiveSelectorClasses": "error",
-				"noPlaywrightUselessAwait": "error",
-				"noUnnecessaryTemplateExpression": "error",
-				"useArraySome": "error",
-				"useMathMinMax": "error",
-				"useRegexpTest": "error"
-			},
-			"nursery": {
-				"noBaseToString": "error",
-				"noExtendNative": "error",
-				"noFloatingPromises": "error",
-				"noImpliedEval": "error",
-				"noInvalidPropertyInitValue": "error",
-				"noJsRestrictedProperties": "error",
-				"noMisleadingReturnType": "error",
-				"noMisusedPromises": "error",
-				"noNegationInEqualityCheck": "error",
-				"noNonScalableViewport": "error",
-				"noRestrictedDependencies": "error",
-				"noSvelteLegacyConst": "error",
-				"noSvelteUnnecessaryStateWrap": "error",
-				"noTailwindArbitraryValue": "error",
-				"noUndeclaredClasses": "error",
-				"noUnsafePlusOperands": "error",
-				"noUnusedClasses": "off",
-				"noUselessTypeConversion": "error",
-				"useAwaitThenable": "error",
-				"useDisposables": "error",
-				"useExhaustiveSwitchCases": "error",
-				"useExplicitReturnType": "error",
-				"useExplicitType": "error",
-				"useIncludes": "error",
-				"useNullishCoalescing": "error",
-				"useReactCompiler": "error",
-				"useReactFunctionComponentDefinition": "error",
-				"useRegexpExec": "error",
-				"useStringStartsEndsWith": "error",
-				"useSvelteRequireEachKey": "error",
-				"useTailwindSortedClasses": "error"
-			},
-			"suspicious": {
-				"noConsole": "error",
-				"noExplicitAny": "error",
-				"noConditionalExpect": "error",
-				"noDrizzleDeleteWithoutWhere": "error",
-				"noDrizzleUpdateWithoutWhere": "error",
-				"noDuplicateSelectors": "error",
-				"noEmptyObjectKeys": "error",
-				"noIdenticalTestTitle": "error",
-				"noJsxLeakedDollar": "error",
-				"noLoopFunc": "error",
-				"noPlaywrightForceOption": "error",
-				"noPlaywrightNetworkidle": "error",
-				"noPlaywrightPagePause": "error",
-				"noPlaywrightWaitForNavigation": "error",
-				"noPlaywrightWaitForTimeout": "error",
-				"noReactNativeDeepImports": "error",
-				"noReactStringRefs": "error",
-				"noUntrustedLicenses": "error",
-				"useBaseline": "error",
-				"useExpect": "error",
-				"useScopedStyles": "error"
-			},
-			"correctness": {
-				"noComponentHookFactories": "error",
-				"noDuplicateFieldDefinitionNames": "error",
-				"noJsxNamespace": "error",
-				"noPlaywrightMissingAwait": "error",
-				"noReactNativeRawText": "error",
-				"noVueImportCompilerMacros": "error",
-				"noVueRefAsOperand": "error",
-				"noVueVOnNumberValues": "error",
-				"usePlaywrightValidDescribeCallback": "error",
-				"useQwikLoaderLocation": "error",
-				"useReactAsyncServerFunction": "error",
-				"useReactNativePlatformComponents": "error",
-				"useVueValidVFor": "error"
-			},
-			"style": {
-				"noInlineStyles": "error",
-				"noPlaywrightElementHandle": "error",
-				"noPlaywrightEval": "error",
-				"noPlaywrightWaitForSelector": "error",
-				"noReactNativeLiteralColors": "error",
-				"noTopLevelLiterals": "error",
-				"useConsistentTestIt": "error",
-				"useDomQuerySelector": "error",
-				"useImportsFirst": "error",
-				"useNamedCaptureGroup": "error",
-				"useReduceTypeParameter": "error",
-				"useTestHooksInOrder": "error",
-				"useTestHooksOnTop": "error",
-				"useThisInClassMethods": "error",
-				"useUnicodeRegex": "error",
-				"useVarsOnTop": "error",
-				"useVueConsistentDefinePropsDeclaration": "error",
-				"useVueNextTickPromise": "error"
-			},
-			"performance": {
-				"useDomNodeTextContent": "error"
-			},
-			"security": {
-				"useIframeSandbox": "error"
-			}
-		}
-	},
-	"overrides": [
-		{
-			"includes": ["frontend/src/debug.ts"],
-			"linter": {
-				"rules": {
-					"suspicious": { "noConsole": "off" }
-				}
-			}
-		},
-		{
-			"includes": [
-				"frontend/**/*.config.ts",
-				"frontend/**/*.config.js",
-				"frontend/**/*.config.mts",
-				"frontend/**/vite.config.*",
-				"frontend/**/vitest.config.*"
-			],
-			"linter": {
-				"rules": {
-					"style": { "noDefaultExport": "off" }
-				}
-			}
-		},
-		{
-			"includes": [
-				"frontend/**/*.test.ts",
-				"frontend/**/*.test.tsx",
-				"frontend/**/*.spec.ts",
-				"frontend/**/tests/**",
-				"frontend/**/__tests__/**"
-			],
-			"linter": {
-				"rules": {
-					"complexity": { "noExcessiveCognitiveComplexity": "off" },
-					"nursery": { "useExplicitType": "off" },
-					"suspicious": { "noExplicitAny": "off" }
-				}
-			}
-		}
-	],
-	"vcs": {
-		"clientKind": "git",
-		"enabled": true,
-		"useIgnoreFile": false
-	}
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedKeys": "on",
+        "useSortedProperties": "on"
+      }
+    },
+    "enabled": true
+  },
+  "css": {
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 100,
+      "quoteStyle": "single"
+    }
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["frontend/**", "!**/dist", "!**/coverage", "!**/node_modules"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100
+  },
+  "html": {
+    "formatter": {
+      "attributePosition": "multiline",
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 100
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "domains": {
+      "project": "all",
+      "test": "all",
+      "types": "all"
+    },
+    "enabled": true,
+    "rules": {
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 15 }
+        },
+        "noExcessiveNestedCallbacks": "error",
+        "noExcessiveSelectorClasses": "error",
+        "noPlaywrightUselessAwait": "error",
+        "noUnnecessaryTemplateExpression": "error",
+        "useArraySome": "error",
+        "useMathMinMax": "error",
+        "useRegexpTest": "error"
+      },
+      "correctness": {
+        "noComponentHookFactories": "error",
+        "noDuplicateFieldDefinitionNames": "error",
+        "noJsxNamespace": "error",
+        "noPlaywrightMissingAwait": "error",
+        "noReactNativeRawText": "error",
+        "noVueImportCompilerMacros": "error",
+        "noVueRefAsOperand": "error",
+        "noVueVOnNumberValues": "error",
+        "usePlaywrightValidDescribeCallback": "error",
+        "useQwikLoaderLocation": "error",
+        "useReactAsyncServerFunction": "error",
+        "useReactNativePlatformComponents": "error",
+        "useVueValidVFor": "error"
+      },
+      "nursery": {
+        "noBaseToString": "error",
+        "noExtendNative": "error",
+        "noFloatingPromises": "error",
+        "noImpliedEval": "error",
+        "noInvalidPropertyInitValue": "error",
+        "noJsRestrictedProperties": "error",
+        "noMisleadingReturnType": "error",
+        "noMisusedPromises": "error",
+        "noNegationInEqualityCheck": "error",
+        "noNonScalableViewport": "error",
+        "noRestrictedDependencies": "error",
+        "noSvelteLegacyConst": "error",
+        "noSvelteUnnecessaryStateWrap": "error",
+        "noTailwindArbitraryValue": "error",
+        "noUndeclaredClasses": "error",
+        "noUnsafePlusOperands": "error",
+        "noUnusedClasses": "off",
+        "noUselessTypeConversion": "error",
+        "useAwaitThenable": "error",
+        "useDisposables": "error",
+        "useExhaustiveSwitchCases": "error",
+        "useExplicitReturnType": "error",
+        "useExplicitType": "error",
+        "useIncludes": "error",
+        "useNullishCoalescing": "error",
+        "useReactCompiler": "error",
+        "useReactFunctionComponentDefinition": "error",
+        "useRegexpExec": "error",
+        "useStringStartsEndsWith": "error",
+        "useSvelteRequireEachKey": "error",
+        "useTailwindSortedClasses": "error"
+      },
+      "performance": {
+        "useDomNodeTextContent": "error"
+      },
+      "security": {
+        "useIframeSandbox": "error"
+      },
+      "style": {
+        "noInlineStyles": "error",
+        "noPlaywrightElementHandle": "error",
+        "noPlaywrightEval": "error",
+        "noPlaywrightWaitForSelector": "error",
+        "noReactNativeLiteralColors": "error",
+        "noTopLevelLiterals": "error",
+        "useConsistentTestIt": "error",
+        "useDomQuerySelector": "error",
+        "useImportsFirst": "error",
+        "useNamedCaptureGroup": "error",
+        "useReduceTypeParameter": "error",
+        "useTestHooksInOrder": "error",
+        "useTestHooksOnTop": "error",
+        "useThisInClassMethods": "error",
+        "useUnicodeRegex": "error",
+        "useVarsOnTop": "error",
+        "useVueConsistentDefinePropsDeclaration": "error",
+        "useVueNextTickPromise": "error"
+      },
+      "suspicious": {
+        "noConditionalExpect": "error",
+        "noConsole": "error",
+        "noDrizzleDeleteWithoutWhere": "error",
+        "noDrizzleUpdateWithoutWhere": "error",
+        "noDuplicateSelectors": "error",
+        "noEmptyObjectKeys": "error",
+        "noExplicitAny": "error",
+        "noIdenticalTestTitle": "error",
+        "noJsxLeakedDollar": "error",
+        "noLoopFunc": "error",
+        "noPlaywrightForceOption": "error",
+        "noPlaywrightNetworkidle": "error",
+        "noPlaywrightPagePause": "error",
+        "noPlaywrightWaitForNavigation": "error",
+        "noPlaywrightWaitForTimeout": "error",
+        "noReactNativeDeepImports": "error",
+        "noReactStringRefs": "error",
+        "noUntrustedLicenses": "error",
+        "useBaseline": "error",
+        "useExpect": "error",
+        "useScopedStyles": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["frontend/src/debug.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "off" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "frontend/**/*.config.ts",
+        "frontend/**/*.config.js",
+        "frontend/**/*.config.mts",
+        "frontend/**/vite.config.*",
+        "frontend/**/vitest.config.*"
+      ],
+      "linter": {
+        "rules": {
+          "style": { "noDefaultExport": "off" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "frontend/**/*.test.ts",
+        "frontend/**/*.test.tsx",
+        "frontend/**/*.spec.ts",
+        "frontend/**/tests/**",
+        "frontend/**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": { "noExcessiveCognitiveComplexity": "off" },
+          "nursery": { "useExplicitType": "off" },
+          "suspicious": { "noExplicitAny": "off" }
+        }
+      }
+    }
+  ],
+  "vcs": {
+    "clientKind": "git",
+    "enabled": true,
+    "useIgnoreFile": false
+  }
 }
